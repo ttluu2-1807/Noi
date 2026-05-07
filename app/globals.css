@@ -1,0 +1,34 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: theme("colors.bg");
+    color: theme("colors.ink");
+    font-family: theme("fontFamily.sans");
+  }
+
+  /* Parent view gets a larger base size for legibility. Applied via
+     data-view="parent" on the html element from (app)/parent layouts. */
+  html[data-view="parent"] {
+    font-size: 18px;
+  }
+
+  html[data-view="child"] {
+    font-size: 16px;
+  }
+
+  /* Remove default focus ring; add our own accent-colored one */
+  :focus-visible {
+    outline: 2px solid theme("colors.accent");
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
