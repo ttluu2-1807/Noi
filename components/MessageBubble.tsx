@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Language } from "@/lib/language-detect";
 import { isTTSSupported, hasVoiceFor, speak, stopSpeaking } from "@/lib/tts";
+import { renderTextWithLinks } from "@/lib/render-text";
 
 export interface MessageRow {
   id: string;
@@ -19,7 +20,12 @@ interface MessageBubbleProps {
   viewerLanguage: Language;
   /** When true, user can tap to flip to the other language. */
   allowToggle?: boolean;
-  /** When true, show a TTS speaker button for assistant messages. */
+  /**
+   * When true, show a TTS speaker button. Defaults to true now —
+   * elderly users benefit from being able to listen to any message
+   * (their own dictated query, the child's reply, AI's response),
+   * not just AI ones. Pass false to suppress.
+   */
   showTTS?: boolean;
 }
 
@@ -28,11 +34,27 @@ const ROLE_LABEL: Record<Language, Record<NonNullable<MessageRow["sender_role"]>
   en: { parent: "Parent", child: "You", assistant: "Noi" },
 };
 
+const TTS_LISTEN: Record<Language, string> = {
+  vi: "Nghe",
+  en: "Listen",
+};
+const TTS_STOP: Record<Language, string> = {
+  vi: "Dừng",
+  en: "Stop",
+};
+
+// Slightly slower default for Vietnamese — elderly listeners follow
+// better at ~0.85x. English at 1.0x is fine for a bilingual child.
+const DEFAULT_RATE: Record<Language, number> = {
+  vi: 0.85,
+  en: 1.0,
+};
+
 export function MessageBubble({
   message,
   viewerLanguage,
   allowToggle = true,
-  showTTS = false,
+  showTTS = true,
 }: MessageBubbleProps) {
   const [lang, setLang] = useState<Language>(viewerLanguage);
   const [speaking, setSpeaking] = useState(false);
@@ -57,6 +79,7 @@ export function MessageBubble({
     setSpeaking(true);
     speak(content, {
       lang,
+      rate: DEFAULT_RATE[lang],
       onEnd: () => setSpeaking(false),
       onError: () => setSpeaking(false),
     });
@@ -74,15 +97,15 @@ export function MessageBubble({
             : "bg-accent/10 text-ink"
         }`}
       >
-        {content}
+        {renderTextWithLinks(content)}
       </div>
       <div className="flex items-center gap-3 text-xs text-muted">
-        {showTTS && isAssistant && isTTSSupported() && hasVoiceFor(lang) && (
+        {showTTS && content.trim().length > 0 && isTTSSupported() && hasVoiceFor(lang) && (
           <button
             type="button"
             onClick={onSpeak}
             className="inline-flex items-center gap-1 hover:text-ink"
-            aria-label={speaking ? "Stop reading" : "Read aloud"}
+            aria-label={speaking ? TTS_STOP[lang] : TTS_LISTEN[lang]}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4">
               {speaking ? (
@@ -91,7 +114,7 @@ export function MessageBubble({
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 10v4a1 1 0 001 1h3l5 4V5L7 9H4a1 1 0 00-1 1zm13.5 2a4.5 4.5 0 00-2-3.75m2 7.5a4.5 4.5 0 01-2 3.75" />
               )}
             </svg>
-            {speaking ? "Stop" : lang === "vi" ? "Nghe" : "Listen"}
+            {speaking ? TTS_STOP[lang] : TTS_LISTEN[lang]}
           </button>
         )}
         {allowToggle && otherHas > 0 && (

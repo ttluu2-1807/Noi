@@ -26,12 +26,16 @@ export async function extractChecklist(
     model: MODEL,
     max_tokens: 1024,
     system:
-      "Extract any checklist items (lines formatted as '- [ ]') from the user's message. " +
+      "Extract checklist items (lines formatted as '- [ ]') from the user's message. " +
       "Return strict JSON only — no prose, no code fences, no preamble. " +
       'Shape: {"items": [{"text_vi": string, "text_en": string}]}. ' +
       "For each item, provide both the Vietnamese and English version of the item text. " +
-      "If there are no checklist items, return {\"items\": []}. " +
-      "Preserve official Australian terms (Medicare, Centrelink, etc.) in both languages.",
+      'If there are no checklist items, return {"items": []}. ' +
+      "Vietnamese version: warm, formal register suitable for an elder. Use 'quý vị' if direct address is needed. " +
+      "English version: clear, friendly Australian English. " +
+      "In both languages: keep Australian institution names in English (Medicare, Centrelink, myGov, ATO), " +
+      "preserve phone numbers and dates verbatim, write each item as a single short imperative sentence " +
+      "(e.g. 'Bring your Medicare card' / 'Mang theo thẻ Medicare').",
     messages: [{ role: "user", content: responseText }],
   });
 

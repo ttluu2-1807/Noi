@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { LoadingDots } from "./LoadingDots";
+import { renderTextWithLinks } from "@/lib/render-text";
 import type { Language } from "@/lib/language-detect";
 
 interface StreamingResponseProps {
@@ -125,7 +126,9 @@ export function StreamingResponse({
   return (
     <div className="space-y-3">
       {text ? (
-        <div className="whitespace-pre-wrap leading-relaxed">{text}</div>
+        <div className="whitespace-pre-wrap leading-relaxed">
+          {renderTextWithLinks(text)}
+        </div>
       ) : (
         <LoadingDots />
       )}

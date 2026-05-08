@@ -19,11 +19,15 @@ export async function generateThreadTitles(
     model: MODEL,
     max_tokens: 256,
     system:
-      "You write short thread titles (5–8 words each) summarising what a conversation is about. " +
+      "You write short thread titles (4–7 words each) summarising what a conversation is about. " +
       "Return strict JSON only — no prose, no code fences. " +
       'Shape: {"title_vi": string, "title_en": string}. ' +
-      "Examples of good titles: 'Renewing Medicare card', 'Gia hạn thẻ Medicare', " +
-      "'Disputing a phone bill', 'Khiếu nại hoá đơn điện thoại'. " +
+      "The English title should be plain Australian English — clear and concrete. " +
+      "The Vietnamese title should match the same meaning, in a tone an elderly Vietnamese-Australian would find natural — no slang, no childish phrasing. " +
+      "Keep Australian institution names in English in both languages (Medicare, Centrelink, myGov, ATO). " +
+      "Examples: 'Renewing Medicare card' / 'Gia hạn thẻ Medicare', " +
+      "'Disputing a phone bill' / 'Khiếu nại hoá đơn điện thoại', " +
+      "'Booking a GP appointment' / 'Đặt lịch khám bác sĩ'. " +
       "No trailing punctuation. No quotation marks inside the strings.",
     messages: [
       {
