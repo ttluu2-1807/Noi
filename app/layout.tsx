@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import { DM_Sans } from "next/font/google";
+import { NavProgress } from "@/components/NavProgress";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -29,7 +31,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="vi" className={dmSans.variable}>
-      <body>{children}</body>
+      <body>
+        {/* useSearchParams inside NavProgress needs a Suspense boundary. */}
+        <Suspense fallback={null}>
+          <NavProgress />
+        </Suspense>
+        {children}
+      </body>
     </html>
   );
 }

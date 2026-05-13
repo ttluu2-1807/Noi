@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { createServerClient } from "@/lib/supabase/server";
-import { signOut } from "@/app/(app)/actions";
 import { ThreadCard, type ThreadSummary } from "@/components/ThreadCard";
 import { RealtimeBoundary } from "@/components/RealtimeBoundary";
+import { HeaderMenu } from "@/components/HeaderMenu";
+import { fetchLatestMessagePerThread } from "@/lib/thread-previews";
 
 export const dynamic = "force-dynamic";
 
@@ -11,10 +12,6 @@ export default async function ChildHome() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  // The (app)/layout already redirects unauthenticated users, but its
-  // redirect races with this page's render. Early-return on null to
-  // avoid a noisy (but invisible to users) log line.
   if (!user) return null;
 
   const { data: profile } = await supabase
@@ -42,16 +39,23 @@ export default async function ChildHome() {
         .limit(50)
     : { data: [] };
 
+  const latestByThread = await fetchLatestMessagePerThread(
+    supabase,
+    (threads ?? []).map((t) => t.id),
+  );
+
+  const displayName = profile?.display_name ?? "there";
+
   return (
     <RealtimeBoundary
       tables={["threads", "messages", "checklist_items"]}
       channelName={`child-home-${profile?.family_space_id ?? "none"}`}
     >
       <main className="mx-auto max-w-2xl px-6 py-10 space-y-8">
-        <header className="flex items-baseline justify-between">
-          <div>
-            <h1 className="text-2xl font-medium">
-              Hi, {profile?.display_name ?? "there"}
+        <header className="flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-2xl font-medium truncate">
+              Hi, {displayName}
             </h1>
             <p className="text-sm text-muted mt-1">
               Family code:{" "}
@@ -60,24 +64,19 @@ export default async function ChildHome() {
               </span>
             </p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 shrink-0">
             <Link
               href="/child/new-task"
-              className="rounded-card bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+              className="rounded-card bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-transform active:scale-[0.98]"
             >
               New task
             </Link>
-            <Link
-              href="/settings"
-              className="text-sm text-muted hover:text-ink"
-            >
-              Settings
-            </Link>
-            <form action={signOut}>
-              <button className="text-sm text-muted hover:text-ink">
-                Sign out
-              </button>
-            </form>
+            <HeaderMenu
+              role="child"
+              language="en"
+              displayName={displayName}
+              inviteCode={family?.invite_code ?? null}
+            />
           </div>
         </header>
 
@@ -101,6 +100,7 @@ export default async function ChildHome() {
                     thread={t}
                     language="en"
                     basePath="/child/thread"
+                    latestMessage={latestByThread[t.id]}
                     highlight={t.status === "open"}
                   />
                 </li>

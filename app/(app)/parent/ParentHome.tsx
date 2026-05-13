@@ -1,20 +1,22 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { VoiceInput } from "@/components/VoiceInput";
 import { StreamingResponse } from "@/components/StreamingResponse";
-import { ThreadCard, type ThreadSummary } from "@/components/ThreadCard";
+import { ThreadCard, type ThreadSummary, type LatestMessageSummary } from "@/components/ThreadCard";
 import { AttachmentPicker } from "@/components/AttachmentPicker";
+import { HeaderMenu } from "@/components/HeaderMenu";
 import type { Attachment } from "@/lib/storage";
 import type { Language } from "@/lib/language-detect";
 
 interface ParentHomeProps {
   displayName: string;
   recentThreads: ThreadSummary[];
+  latestMessages: Record<string, LatestMessageSummary>;
   language: Language;
   familySpaceId: string;
+  inviteCode: string | null;
 }
 
 const T = {
@@ -46,7 +48,14 @@ const T = {
  * UI strings + voice recognition language + content language all key off
  * the parent's `language_preference` (toggleable in Settings).
  */
-export function ParentHome({ displayName, recentThreads, language, familySpaceId }: ParentHomeProps) {
+export function ParentHome({
+  displayName,
+  recentThreads,
+  latestMessages,
+  language,
+  familySpaceId,
+  inviteCode,
+}: ParentHomeProps) {
   const router = useRouter();
   const t = T[language];
   const [query, setQuery] = useState<string | null>(null);
@@ -94,14 +103,17 @@ export function ParentHome({ displayName, recentThreads, language, familySpaceId
 
   return (
     <main className="mx-auto max-w-md px-6 py-10 space-y-10">
-      <header className="flex items-baseline justify-between">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-medium">{t.greeting(displayName)}</h1>
+      <header className="flex items-start justify-between gap-4">
+        <div className="space-y-1 min-w-0 flex-1">
+          <h1 className="text-2xl font-medium truncate">{t.greeting(displayName)}</h1>
           <p className="text-muted">{t.prompt}</p>
         </div>
-        <Link href="/settings" className="text-sm text-muted hover:text-ink">
-          {t.settings}
-        </Link>
+        <HeaderMenu
+          role="parent"
+          language={language}
+          displayName={displayName}
+          inviteCode={inviteCode}
+        />
       </header>
 
       <section className="flex flex-col items-center gap-6">
@@ -156,6 +168,7 @@ export function ParentHome({ displayName, recentThreads, language, familySpaceId
                   thread={t}
                   language={language}
                   basePath="/parent/thread"
+                  latestMessage={latestMessages[t.id]}
                   // Highlight tasks the child set up for the parent — these
                   // feel new and distinct from the parent's own questions.
                   highlight={

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createServerClient } from "@/lib/supabase/server";
 import { signOut } from "@/app/(app)/actions";
+import { SubmitButton } from "@/components/SubmitButton";
 import { CopyableCode } from "./CopyableCode";
 import { updateDisplayName, updateLanguagePreference } from "./actions";
 
@@ -80,12 +81,9 @@ export default async function SettingsPage() {
               className="w-full rounded-card border border-line bg-white px-4 py-3 focus:border-accent focus:outline-none"
             />
           </label>
-          <button
-            type="submit"
-            className="rounded-card bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-          >
+          <SubmitButton className="rounded-card bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90">
             {t.save}
-          </button>
+          </SubmitButton>
         </form>
       </section>
 

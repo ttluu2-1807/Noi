@@ -36,19 +36,68 @@ Phase 1 complete and **shipped to production** at `https://noi-app.com`. Custom 
 6. ~~Custom domain + verified Resend sender~~ — ✅ `noi@noi-app.com`.
 7. ~~Run a two-account walkthrough~~ — ✅ both parent + child verified on real devices.
 
-### Backlog (post-Phase-1 wishlist)
+### Backlog — current sprint (Phase 2)
 
-| # | Feature | Status |
+Three waves of ~2-3 hours each. Tackled in order. Each wave is independently shippable.
+
+**Wave 1 — Responsiveness + polish**
+
+| Item | Detail | Status |
 |---|---|---|
-| 1 | Iterative AI refinement on new-task (go back/forth with AI before submit) | ⬜ Not started |
-| 2 | Delete past tasks (owner can remove threads) | ⬜ Not started |
-| 3 | Screenshot upload for AI vision | ✅ Done |
-| 4 | AI presents visuals/screenshots to user | ⬜ Not started (design unclear) |
-| 5 | Bilingual TTS + better translation | ✅ Done |
-| 6 | Tappable phone numbers + link auto-detection | ✅ Done |
-| 7 | Parent English/Vietnamese language toggle | ✅ Done |
-| 8 | Child voice-to-text composer | ✅ Done |
-| 9 | Child unified Parent/Noi destination toggle | ✅ Done |
+| A | Optimistic UI + tap feedback on every button/form action | ⬜ |
+| F | Replace header pill row with avatar/menu sheet (mobile-friendly) | ⬜ |
+| B.1 | Restyle thread cards: message preview snippet, image thumb, better time format, hover lift | ⬜ |
+
+**Wave 2 — Organization at scale**
+
+| Item | Detail | Status |
+|---|---|---|
+| C | Multi-tag system (drop single category_tag, allow custom tags from both roles) | ⬜ |
+| D | Open / Done tabs on dashboard with counts | ⬜ |
+| E | Mark-resolved affordance on parent thread view (currently child-only) | ⬜ |
+| G | Inside-thread tabs: Conversation vs Action items | ⬜ |
+
+**Wave 3 — Trust + warmth for elderly users**
+
+| Item | Detail | Status |
+|---|---|---|
+| H | First-run 3-screen onboarding tour for parent | ⬜ |
+| I | In-app unread indicator on threads with new content from other role | ⬜ |
+| J | Suggested-question prompts in empty states | ⬜ |
+| K | Warm localised error states (no raw errors to parent) | ⬜ |
+| M | Auto-TTS toggle on assistant responses (settings opt-in) | ⬜ |
+
+### Killer features — Phase 2 strategic bets
+
+Heavier (week-plus each) but the biggest retention drivers.
+
+| Item | Detail | Status |
+|---|---|---|
+| KILLER-1 | Reminders / nudges — parent commits to "call Centrelink Friday", app reminds them Friday morning. Needs scheduled jobs, push or email, calendar export. | ⬜ |
+| KILLER-2 | Family member presence — "Mai is viewing this thread", "Mai is typing". Realtime broadcast over Supabase Presence channels. Strong family-warmth signal. | ⬜ |
+| KILLER-3 | Voice mode end-to-end for parent — instead of read-typed-text, AI speaks the response, parent can voice-reply. Needs server-side STT (Whisper) for reliable Vietnamese on iPhone, plus optional ElevenLabs TTS. | ⬜ |
+
+### Smaller backlog (revisit when relevant)
+
+| Item | Detail | Status |
+|---|---|---|
+| 1 | Iterative AI refinement on new-task (back-and-forth before submit) | ⬜ |
+| 2 | Delete past tasks (soft delete) | ⬜ |
+| 4 | AI presents visuals to user (design still unclear — revisit with concrete use case) | ⬜ |
+| L | Search across threads | ⬜ |
+| O | A−/A+ font size escalation for accessibility | ⬜ |
+| — | Onboarding for child role (currently parent-only planned) | ⬜ |
+
+### Already-shipped post-launch work (for reference)
+
+- ✅ Tappable phone numbers + URL auto-detection in messages
+- ✅ TTS on every message with slower Vietnamese rate
+- ✅ Tightened translation prompts (elder-friendly Vietnamese register)
+- ✅ Parent English/Vietnamese language toggle
+- ✅ Child voice-to-text composer
+- ✅ Child unified Parent/Noi destination toggle
+- ✅ Image attachments with Claude vision
+- ✅ Custom domain `noi-app.com` with verified Resend SMTP
 
 ---
 

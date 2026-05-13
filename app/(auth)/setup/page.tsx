@@ -1,3 +1,4 @@
+import { SubmitButton } from "@/components/SubmitButton";
 import { completeSetup } from "./actions";
 
 export default function SetupPage({
@@ -72,12 +73,12 @@ export default function SetupPage({
           </p>
         )}
 
-        <button
-          type="submit"
-          className="w-full rounded-card bg-accent px-4 py-3 font-medium text-white hover:opacity-90 transition-opacity"
+        <SubmitButton
+          pendingLabel="Setting up…"
+          className="w-full rounded-card bg-accent px-4 py-3 font-medium text-white hover:opacity-90"
         >
           Continue
-        </button>
+        </SubmitButton>
       </form>
     </div>
   );

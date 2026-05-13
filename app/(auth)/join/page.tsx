@@ -1,3 +1,4 @@
+import { SubmitButton } from "@/components/SubmitButton";
 import { joinFamily } from "./actions";
 
 export default function JoinPage({
@@ -35,12 +36,12 @@ export default function JoinPage({
           </p>
         )}
 
-        <button
-          type="submit"
-          className="w-full rounded-card bg-accent px-4 py-3 font-medium text-white hover:opacity-90 transition-opacity"
+        <SubmitButton
+          pendingLabel="Joining…"
+          className="w-full rounded-card bg-accent px-4 py-3 font-medium text-white hover:opacity-90"
         >
           Join
-        </button>
+        </SubmitButton>
       </form>
     </div>
   );

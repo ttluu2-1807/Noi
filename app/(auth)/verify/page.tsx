@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SubmitButton } from "@/components/SubmitButton";
 import { resendMagicLink } from "./actions";
 
 export default function VerifyPage({
@@ -37,12 +38,12 @@ export default function VerifyPage({
 
       <form action={resendMagicLink} className="space-y-2">
         <input type="hidden" name="email" value={email} />
-        <button
-          type="submit"
+        <SubmitButton
+          pendingLabel="Sending…"
           className="text-sm text-muted hover:text-ink underline underline-offset-4"
         >
           Resend link
-        </button>
+        </SubmitButton>
       </form>
 
       <Link href="/login" className="block text-sm text-muted hover:text-ink">

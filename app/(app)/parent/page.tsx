@@ -1,7 +1,8 @@
 import { createServerClient } from "@/lib/supabase/server";
 import { RealtimeBoundary } from "@/components/RealtimeBoundary";
 import { ParentHome } from "./ParentHome";
-import type { ThreadSummary } from "@/components/ThreadCard";
+import type { ThreadSummary, LatestMessageSummary } from "@/components/ThreadCard";
+import { fetchLatestMessagePerThread } from "@/lib/thread-previews";
 
 export const dynamic = "force-dynamic";
 
@@ -20,12 +21,23 @@ export default async function ParentPage() {
 
   const language = (profile?.language_preference ?? "vi") as "vi" | "en";
 
+  const { data: family } = await supabase
+    .from("family_spaces")
+    .select("invite_code")
+    .eq("id", profile!.family_space_id!)
+    .maybeSingle();
+
   const { data: threads } = await supabase
     .from("threads")
     .select("id, title_vi, title_en, category_tag, status, updated_at, initiated_by_role")
     .eq("family_space_id", profile!.family_space_id!)
     .order("updated_at", { ascending: false })
     .limit(10);
+
+  const latestByThread = await fetchLatestMessagePerThread(
+    supabase,
+    (threads ?? []).map((t) => t.id),
+  );
 
   return (
     <RealtimeBoundary
@@ -37,8 +49,10 @@ export default async function ParentPage() {
           profile?.display_name ?? (language === "vi" ? "quý vị" : "there")
         }
         recentThreads={(threads ?? []) as ThreadSummary[]}
+        latestMessages={latestByThread as Record<string, LatestMessageSummary>}
         language={language}
         familySpaceId={profile!.family_space_id!}
+        inviteCode={family?.invite_code ?? null}
       />
     </RealtimeBoundary>
   );

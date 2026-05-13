@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SubmitButton } from "@/components/SubmitButton";
 import { sendMagicLink } from "./actions";
 
 export default function LoginPage({
@@ -32,12 +33,12 @@ export default function LoginPage({
           </p>
         )}
 
-        <button
-          type="submit"
-          className="w-full rounded-card bg-accent px-4 py-3 font-medium text-white hover:opacity-90 transition-opacity"
+        <SubmitButton
+          pendingLabel="Sending…"
+          className="w-full rounded-card bg-accent px-4 py-3 font-medium text-white hover:opacity-90"
         >
           Send me a login link
-        </button>
+        </SubmitButton>
       </form>
 
       <div className="text-center text-sm text-muted">

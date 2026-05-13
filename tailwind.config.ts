@@ -37,10 +37,16 @@ const config: Config = {
           "0%, 80%, 100%": { opacity: "0.3" },
           "40%": { opacity: "1" },
         },
+        navProgress: {
+          "0%": { transform: "translateX(-100%)" },
+          "50%": { transform: "translateX(0)" },
+          "100%": { transform: "translateX(50%)" },
+        },
       },
       animation: {
         "pulse-ring": "pulseRing 1.4s cubic-bezier(0.4, 0, 0.6, 1) infinite",
         "dot-pulse": "dotPulse 1.4s ease-in-out infinite",
+        "nav-progress": "navProgress 1.2s ease-out forwards",
       },
     },
   },
