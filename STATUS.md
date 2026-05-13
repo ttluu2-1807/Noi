@@ -1,10 +1,10 @@
 # Noi — project status
 
-Last updated: 2026-05-07
+Last updated: 2026-05-14
 
 ## Where we are
 
-Phase 1 is functionally complete. Every feature in the "Definition of done" section of the original build spec is implemented and typechecks. The parent AI chat vertical has been verified end-to-end with voice + text input. The child side (realtime dashboard, thread view with add-context + reply + category, new-task flow, settings) is built but awaiting a full end-to-end user test. **Credentials have been rotated** and the project is ready for first deployment to Vercel.
+Phase 1 complete and **shipped to production** at `https://noi-app.com`. Custom domain configured with Resend SMTP (verified domain — magic links can go to any recipient). Both parent and child accounts tested end-to-end on real devices with real emails. Several post-launch UX improvements landed: tappable phone numbers, TTS on every message with slower Vietnamese rate, broader TTS coverage, tightened translation prompts, parent language preference toggle, child unified composer (Parent/Noi destination toggle), voice input for child, and image attachments with Claude vision integration.
 
 ### What's verified working
 
@@ -26,14 +26,29 @@ Phase 1 is functionally complete. Every feature in the "Definition of done" sect
 - ⬜ Settings page (display name, language toggle, family code)
 - ⬜ Realtime updates (parent home, parent thread, child home, child thread)
 
-### What's left before production ship
+### Phase 1 ship checklist
 
-1. ~~Rotate the three leaked credentials~~ — ✅ done 2026-05-07.
-2. ~~Set an Anthropic spending cap~~ — ✅ done as part of rotation.
-3. **Configure custom SMTP** (e.g. Resend) in Supabase Auth settings — the default test SMTP is rate-limited to ~4 emails/hour per address and will frustrate real users.
-4. **Initialise git + push to GitHub** (this folder is not yet a git repo).
-5. **Deploy to Vercel** and add the production domain to Supabase → Authentication → URL Configuration → Redirect URLs.
-6. **Run a two-account walkthrough** of every item in "Built but awaiting end-to-end test" above.
+1. ~~Rotate the three leaked credentials~~ — ✅ done.
+2. ~~Set an Anthropic spending cap~~ — ✅ done.
+3. ~~Configure custom SMTP (Resend)~~ — ✅ done.
+4. ~~Initialise git + push to GitHub~~ — ✅ at https://github.com/ttluu2-1807/Noi.
+5. ~~Deploy to Vercel~~ — ✅ live at https://noi-app.com.
+6. ~~Custom domain + verified Resend sender~~ — ✅ `noi@noi-app.com`.
+7. ~~Run a two-account walkthrough~~ — ✅ both parent + child verified on real devices.
+
+### Backlog (post-Phase-1 wishlist)
+
+| # | Feature | Status |
+|---|---|---|
+| 1 | Iterative AI refinement on new-task (go back/forth with AI before submit) | ⬜ Not started |
+| 2 | Delete past tasks (owner can remove threads) | ⬜ Not started |
+| 3 | Screenshot upload for AI vision | ✅ Done |
+| 4 | AI presents visuals/screenshots to user | ⬜ Not started (design unclear) |
+| 5 | Bilingual TTS + better translation | ✅ Done |
+| 6 | Tappable phone numbers + link auto-detection | ✅ Done |
+| 7 | Parent English/Vietnamese language toggle | ✅ Done |
+| 8 | Child voice-to-text composer | ✅ Done |
+| 9 | Child unified Parent/Noi destination toggle | ✅ Done |
 
 ---
 
