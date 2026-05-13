@@ -7,6 +7,7 @@ import { StreamingResponse } from "@/components/StreamingResponse";
 import { ThreadCard, type ThreadSummary, type LatestMessageSummary } from "@/components/ThreadCard";
 import { AttachmentPicker } from "@/components/AttachmentPicker";
 import { HeaderMenu } from "@/components/HeaderMenu";
+import { StatusTabs } from "@/components/StatusTabs";
 import type { Attachment } from "@/lib/storage";
 import type { Language } from "@/lib/language-detect";
 
@@ -17,6 +18,9 @@ interface ParentHomeProps {
   language: Language;
   familySpaceId: string;
   inviteCode: string | null;
+  activeStatus: "open" | "done";
+  openCount: number;
+  doneCount: number;
 }
 
 const T = {
@@ -55,6 +59,9 @@ export function ParentHome({
   language,
   familySpaceId,
   inviteCode,
+  activeStatus,
+  openCount,
+  doneCount,
 }: ParentHomeProps) {
   const router = useRouter();
   const t = T[language];
@@ -156,28 +163,50 @@ export function ParentHome({
         </form>
       </section>
 
-      {recentThreads.length > 0 && (
+      {(openCount > 0 || doneCount > 0) && (
         <section className="space-y-3">
-          <h2 className="text-sm text-muted uppercase tracking-wide">
-            {t.recentHeading}
-          </h2>
-          <ul className="space-y-2">
-            {recentThreads.map((t) => (
-              <li key={t.id}>
-                <ThreadCard
-                  thread={t}
-                  language={language}
-                  basePath="/parent/thread"
-                  latestMessage={latestMessages[t.id]}
-                  // Highlight tasks the child set up for the parent — these
-                  // feel new and distinct from the parent's own questions.
-                  highlight={
-                    t.initiated_by_role === "child" && t.status === "open"
-                  }
-                />
-              </li>
-            ))}
-          </ul>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm text-muted uppercase tracking-wide">
+              {t.recentHeading}
+            </h2>
+            <StatusTabs
+              basePath="/parent"
+              active={activeStatus}
+              language={language}
+              openCount={openCount}
+              doneCount={doneCount}
+            />
+          </div>
+          {recentThreads.length > 0 ? (
+            <ul className="space-y-2">
+              {recentThreads.map((thread) => (
+                <li key={thread.id}>
+                  <ThreadCard
+                    thread={thread}
+                    language={language}
+                    basePath="/parent/thread"
+                    latestMessage={latestMessages[thread.id]}
+                    // Highlight tasks the child set up for the parent — these
+                    // feel new and distinct from the parent's own questions.
+                    highlight={
+                      thread.initiated_by_role === "child" &&
+                      thread.status === "open"
+                    }
+                  />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="rounded-card border border-line bg-white p-6 text-center text-sm text-muted">
+              {activeStatus === "done"
+                ? language === "vi"
+                  ? "Chưa có câu hỏi nào được đánh dấu đã xong."
+                  : "Nothing marked done yet."
+                : language === "vi"
+                  ? "Không có câu hỏi nào đang mở."
+                  : "No open questions."}
+            </p>
+          )}
         </section>
       )}
     </main>

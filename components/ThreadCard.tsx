@@ -1,12 +1,14 @@
 import Link from "next/link";
 import type { Language } from "@/lib/language-detect";
 import { relativeTime } from "@/lib/relative-time";
+import { tagColors } from "@/lib/tags";
 
 export interface ThreadSummary {
   id: string;
   title_vi: string | null;
   title_en: string | null;
-  category_tag: string | null;
+  /** Multi-tag array (Wave 2). Empty = untagged. */
+  tags: string[] | null;
   status: string | null;
   updated_at: string;
   initiated_by_role: string | null;
@@ -131,14 +133,26 @@ export function ThreadCard({
           </div>
         )}
 
-        {/* Meta row */}
-        <div className="flex items-center gap-2 text-xs text-muted/80">
-          {thread.category_tag && (
-            <span className="rounded-full bg-accent/10 text-accent px-2 py-0.5">
-              {thread.category_tag}
+        {/* Meta row: tags (colour-coded) + relative time */}
+        <div className="flex items-center gap-1.5 flex-wrap text-xs text-muted/80">
+          {(thread.tags ?? []).slice(0, 4).map((tag) => {
+            const c = tagColors(tag);
+            return (
+              <span
+                key={tag}
+                className="rounded-full border px-2 py-0.5"
+                style={{ backgroundColor: c.bg, color: c.fg, borderColor: c.border }}
+              >
+                {tag}
+              </span>
+            );
+          })}
+          {(thread.tags?.length ?? 0) > 4 && (
+            <span className="text-muted/60">
+              +{(thread.tags?.length ?? 0) - 4}
             </span>
           )}
-          <time dateTime={thread.updated_at}>
+          <time dateTime={thread.updated_at} className="ml-auto">
             {relativeTime(thread.updated_at, language)}
           </time>
         </div>

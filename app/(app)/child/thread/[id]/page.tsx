@@ -4,16 +4,20 @@ import { createServerClient } from "@/lib/supabase/server";
 import { MessageBubble, type MessageRow } from "@/components/MessageBubble";
 import { ChecklistPanel, type ChecklistRow } from "@/components/ChecklistPanel";
 import { RealtimeBoundary } from "@/components/RealtimeBoundary";
+import { TagSelector } from "@/components/TagSelector";
+import { ThreadTabs } from "@/components/ThreadTabs";
+import { listFamilyTags } from "@/lib/tags";
 import { ChildComposer } from "./ChildComposer";
-import { CategorySelector } from "./CategorySelector";
-import { setThreadStatus } from "./actions";
+import { setThreadStatus, setThreadTags } from "./actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function ChildThreadPage({
   params,
+  searchParams,
 }: {
   params: { id: string };
+  searchParams: { tab?: string };
 }) {
   const supabase = createServerClient();
   const {
@@ -26,13 +30,14 @@ export default async function ChildThreadPage({
     .select("family_space_id")
     .eq("id", user.id)
     .maybeSingle();
+  if (!profile?.family_space_id) return null;
 
-  const [{ data: thread }, { data: messages }, { data: checklist }] =
+  const [{ data: thread }, { data: messages }, { data: checklist }, familyTags] =
     await Promise.all([
       supabase
         .from("threads")
         .select(
-          "id, title_vi, title_en, category_tag, status, initiated_by_role",
+          "id, title_vi, title_en, tags, status, initiated_by_role",
         )
         .eq("id", params.id)
         .maybeSingle(),
@@ -46,15 +51,19 @@ export default async function ChildThreadPage({
         .select("id, text_vi, text_en, is_completed, sort_order")
         .eq("thread_id", params.id)
         .order("sort_order", { ascending: true }),
+      listFamilyTags(supabase, profile.family_space_id),
     ]);
 
   if (!thread) notFound();
 
+  const tab = searchParams.tab === "actions" ? "actions" : "chat";
   const threadFilter = `thread_id=eq.${thread.id}`;
+  const messageList = messages ?? [];
+  const checklistList = (checklist ?? []) as ChecklistRow[];
 
   return (
     <RealtimeBoundary
-      tables={["messages", "checklist_items"]}
+      tables={["messages", "checklist_items", "threads"]}
       channelName={`child-thread-${thread.id}`}
       filter={threadFilter}
     >
@@ -98,7 +107,7 @@ export default async function ChildThreadPage({
                 value={thread.status === "resolved" ? "open" : "resolved"}
               />
               <button
-                className={`shrink-0 rounded-full px-3 py-1 text-xs transition-colors ${
+                className={`shrink-0 rounded-full px-3 py-1 text-xs transition-transform active:scale-95 ${
                   thread.status === "resolved"
                     ? "bg-accent/10 text-accent"
                     : "bg-white border border-line text-muted hover:text-ink"
@@ -108,42 +117,59 @@ export default async function ChildThreadPage({
               </button>
             </form>
           </div>
-          <CategorySelector
+          <TagSelector
             threadId={thread.id}
-            current={thread.category_tag}
+            tags={(thread.tags as string[]) ?? []}
+            familyTags={familyTags}
+            language="en"
+            onSetTags={setThreadTags}
           />
         </header>
 
-        {(messages ?? []).length > 0 && (
-          <section className="space-y-4">
-            {(messages ?? []).map((m) => (
-              <MessageBubble
-                key={m.id}
-                message={m as MessageRow}
-                viewerLanguage="en"
-                allowToggle
-              />
-            ))}
-          </section>
-        )}
-
-        {(checklist ?? []).length > 0 && (
-          <section className="space-y-3">
-            <h2 className="text-sm text-muted uppercase tracking-wide">
-              Checklist
-            </h2>
-            <ChecklistPanel
-              items={(checklist ?? []) as ChecklistRow[]}
-              language="en"
-              currentUserId={user.id}
-            />
-          </section>
-        )}
-
-        <ChildComposer
+        <ThreadTabs
           threadId={thread.id}
-          familySpaceId={profile!.family_space_id!}
+          basePath="/child/thread"
+          active={tab}
+          language="en"
+          actionCount={checklistList.length}
+          messageCount={messageList.length}
         />
+
+        {tab === "chat" ? (
+          <>
+            {messageList.length > 0 && (
+              <section className="space-y-4">
+                {messageList.map((m) => (
+                  <MessageBubble
+                    key={m.id}
+                    message={m as MessageRow}
+                    viewerLanguage="en"
+                    allowToggle
+                  />
+                ))}
+              </section>
+            )}
+            <ChildComposer
+              threadId={thread.id}
+              familySpaceId={profile.family_space_id}
+            />
+          </>
+        ) : (
+          <section className="space-y-3">
+            {checklistList.length > 0 ? (
+              <ChecklistPanel
+                items={checklistList}
+                language="en"
+                currentUserId={user.id}
+              />
+            ) : (
+              <div className="rounded-card border border-line bg-white p-8 text-center text-sm text-muted">
+                No action items yet. Items appear here when Noi suggests
+                things to gather or do.
+              </div>
+            )}
+          </section>
+        )}
       </main>
     </RealtimeBoundary>
   );

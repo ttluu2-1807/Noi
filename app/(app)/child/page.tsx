@@ -3,11 +3,16 @@ import { createServerClient } from "@/lib/supabase/server";
 import { ThreadCard, type ThreadSummary } from "@/components/ThreadCard";
 import { RealtimeBoundary } from "@/components/RealtimeBoundary";
 import { HeaderMenu } from "@/components/HeaderMenu";
+import { StatusTabs } from "@/components/StatusTabs";
 import { fetchLatestMessagePerThread } from "@/lib/thread-previews";
 
 export const dynamic = "force-dynamic";
 
-export default async function ChildHome() {
+export default async function ChildHome({
+  searchParams,
+}: {
+  searchParams: { status?: string };
+}) {
   const supabase = createServerClient();
   const {
     data: { user },
@@ -28,20 +33,26 @@ export default async function ChildHome() {
         .maybeSingle()
     : { data: null };
 
-  const { data: threads } = profile?.family_space_id
+  const { data: allThreads } = profile?.family_space_id
     ? await supabase
         .from("threads")
         .select(
-          "id, title_vi, title_en, category_tag, status, updated_at, initiated_by_role",
+          "id, title_vi, title_en, tags, status, updated_at, initiated_by_role",
         )
         .eq("family_space_id", profile.family_space_id)
         .order("updated_at", { ascending: false })
-        .limit(50)
     : { data: [] };
+
+  const all = (allThreads ?? []) as ThreadSummary[];
+  const openThreads = all.filter((t) => t.status !== "resolved");
+  const doneThreads = all.filter((t) => t.status === "resolved");
+  const activeStatus: "open" | "done" =
+    searchParams.status === "done" ? "done" : "open";
+  const visibleThreads = activeStatus === "done" ? doneThreads : openThreads;
 
   const latestByThread = await fetchLatestMessagePerThread(
     supabase,
-    (threads ?? []).map((t) => t.id),
+    visibleThreads.map((t) => t.id),
   );
 
   const displayName = profile?.display_name ?? "there";
@@ -80,7 +91,7 @@ export default async function ChildHome() {
           </div>
         </header>
 
-        {(threads ?? []).length === 0 ? (
+        {all.length === 0 ? (
           <section className="rounded-card border border-line bg-white p-8 text-center space-y-2">
             <p className="text-muted">No activity yet.</p>
             <p className="text-sm text-muted/80">
@@ -90,22 +101,39 @@ export default async function ChildHome() {
           </section>
         ) : (
           <section className="space-y-3">
-            <h2 className="text-sm text-muted uppercase tracking-wide">
-              Activity
-            </h2>
-            <ul className="space-y-2">
-              {(threads as ThreadSummary[]).map((t) => (
-                <li key={t.id}>
-                  <ThreadCard
-                    thread={t}
-                    language="en"
-                    basePath="/child/thread"
-                    latestMessage={latestByThread[t.id]}
-                    highlight={t.status === "open"}
-                  />
-                </li>
-              ))}
-            </ul>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-sm text-muted uppercase tracking-wide">
+                Activity
+              </h2>
+              <StatusTabs
+                basePath="/child"
+                active={activeStatus}
+                language="en"
+                openCount={openThreads.length}
+                doneCount={doneThreads.length}
+              />
+            </div>
+            {visibleThreads.length > 0 ? (
+              <ul className="space-y-2">
+                {visibleThreads.map((t) => (
+                  <li key={t.id}>
+                    <ThreadCard
+                      thread={t}
+                      language="en"
+                      basePath="/child/thread"
+                      latestMessage={latestByThread[t.id]}
+                      highlight={t.status === "open"}
+                    />
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="rounded-card border border-line bg-white p-6 text-center text-sm text-muted">
+                {activeStatus === "done"
+                  ? "Nothing marked done yet."
+                  : "No open threads."}
+              </p>
+            )}
           </section>
         )}
       </main>

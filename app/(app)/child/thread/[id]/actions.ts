@@ -107,26 +107,39 @@ export async function replyToThread(formData: FormData) {
 }
 
 /**
- * Change the category tag on a thread. Child-only action — the parent
- * doesn't need this affordance. Categories are free-form strings; we
- * keep the short shortlist from the schema comment as suggestions in
- * the UI but don't enforce it at the DB level.
+ * Replace the full tag array on a thread. Both roles use this — the
+ * server action is shared between parent and child thread views.
  *
- * Returns void so this can be bound directly to `<form action={...}>`
- * as well as called from `startTransition`.
+ * Tags are free-form strings, lowercased and trimmed by the client
+ * before being sent. Max 20 tags per thread, max 30 chars each — a
+ * defensive cap so a misbehaving client can't bloat a row.
  */
-export async function setThreadCategory(formData: FormData): Promise<void> {
-  const threadId = String(formData.get("threadId") ?? "");
-  const category = String(formData.get("category") ?? "").trim() || null;
-  if (!threadId) return;
+export async function setThreadTags(
+  threadId: string,
+  tags: string[],
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!threadId) return { ok: false, error: "Missing thread id" };
+
+  const cleaned = Array.from(
+    new Set(
+      tags
+        .map((t) => (typeof t === "string" ? t.trim().toLowerCase() : ""))
+        .filter((t) => t.length > 0 && t.length <= 30),
+    ),
+  ).slice(0, 20);
 
   const supabase = createServerClient();
-  await supabase
+  const { error } = await supabase
     .from("threads")
-    .update({ category_tag: category })
+    .update({ tags: cleaned })
     .eq("id", threadId);
+  if (error) return { ok: false, error: error.message };
 
   revalidatePath(`/child/thread/${threadId}`);
+  revalidatePath(`/parent/thread/${threadId}`);
+  revalidatePath(`/child`);
+  revalidatePath(`/parent`);
+  return { ok: true };
 }
 
 /**
