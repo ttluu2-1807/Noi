@@ -38,6 +38,7 @@ export default async function ParentPage() {
         }
         recentThreads={(threads ?? []) as ThreadSummary[]}
         language={language}
+        familySpaceId={profile!.family_space_id!}
       />
     </RealtimeBoundary>
   );

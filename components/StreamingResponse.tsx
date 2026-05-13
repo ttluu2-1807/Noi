@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { LoadingDots } from "./LoadingDots";
 import { renderTextWithLinks } from "@/lib/render-text";
 import type { Language } from "@/lib/language-detect";
+import type { Attachment } from "@/lib/storage";
 
 interface StreamingResponseProps {
   /** The user's question. Triggers the chat request once, on mount. */
@@ -16,6 +17,12 @@ interface StreamingResponseProps {
    * "copilot_comment" = child adding context to an existing thread.
    */
   messageType?: "query" | "copilot_comment";
+  /**
+   * Optional images already uploaded to Supabase Storage. Sent to
+   * /api/chat where the server fetches each image and includes it as
+   * a vision content block on the Claude call.
+   */
+  attachments?: Attachment[];
   /** Called once the stream completes, with the resolved thread id. */
   onComplete: (threadId: string) => void;
   /** Called if the stream errors out. */
@@ -38,6 +45,7 @@ export function StreamingResponse({
   threadId,
   language,
   messageType = "query",
+  attachments,
   onComplete,
   onError,
 }: StreamingResponseProps) {
@@ -73,6 +81,7 @@ export function StreamingResponse({
             message: query,
             language,
             messageType,
+            attachments: attachments ?? [],
           }),
           signal: controller.signal,
         });

@@ -4,12 +4,15 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { VoiceInput } from "@/components/VoiceInput";
 import { StreamingResponse } from "@/components/StreamingResponse";
+import { AttachmentPicker } from "@/components/AttachmentPicker";
+import type { Attachment } from "@/lib/storage";
 import { replyToThread } from "./actions";
 
 type Destination = "parent" | "noi";
 
 interface ChildComposerProps {
   threadId: string;
+  familySpaceId: string;
 }
 
 /**
@@ -27,13 +30,15 @@ interface ChildComposerProps {
  * Replaces the previous separate `ReplyForm` and `AddContextPanel` so
  * the child has one place to type and chooses the audience explicitly.
  */
-export function ChildComposer({ threadId }: ChildComposerProps) {
+export function ChildComposer({ threadId, familySpaceId }: ChildComposerProps) {
   const router = useRouter();
   const [destination, setDestination] = useState<Destination>("parent");
   const [text, setText] = useState("");
+  const [attachment, setAttachment] = useState<Attachment | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pendingReply, startReplyTransition] = useTransition();
   const [askingNoi, setAskingNoi] = useState<string | null>(null);
+  const [pendingAttachment, setPendingAttachment] = useState<Attachment | null>(null);
 
   // While Noi is streaming a response we hide the composer and show the
   // pending question + StreamingResponse. Once it's done, the realtime
@@ -51,9 +56,11 @@ export function ChildComposer({ threadId }: ChildComposerProps) {
           threadId={threadId}
           language="en"
           messageType="copilot_comment"
+          attachments={pendingAttachment ? [pendingAttachment] : undefined}
           onComplete={() => {
             setAskingNoi(null);
             setText("");
+            setPendingAttachment(null);
             router.refresh();
           }}
         />
@@ -61,15 +68,17 @@ export function ChildComposer({ threadId }: ChildComposerProps) {
     );
   }
 
-  const sendToParent = (trimmed: string) => {
+  const sendToParent = (trimmed: string, att: Attachment | null) => {
     setError(null);
     startReplyTransition(async () => {
       const fd = new FormData();
       fd.set("threadId", threadId);
       fd.set("message", trimmed);
+      fd.set("attachments", JSON.stringify(att ? [att] : []));
       const result = await replyToThread(fd);
       if (result.ok) {
         setText("");
+        setAttachment(null);
       } else {
         setError(result.error);
       }
@@ -78,11 +87,16 @@ export function ChildComposer({ threadId }: ChildComposerProps) {
 
   const onSend = () => {
     const trimmed = text.trim();
-    if (!trimmed) return;
+    if (!trimmed && !attachment) return;
     if (destination === "parent") {
-      sendToParent(trimmed);
+      sendToParent(trimmed, attachment);
     } else {
-      setAskingNoi(trimmed);
+      setPendingAttachment(attachment);
+      setAskingNoi(
+        trimmed ||
+          "Could you explain what's in this image and how it relates to the thread?",
+      );
+      setAttachment(null);
     }
   };
 
@@ -135,6 +149,14 @@ export function ChildComposer({ threadId }: ChildComposerProps) {
         disabled={pendingReply}
       />
 
+      <AttachmentPicker
+        familySpaceId={familySpaceId}
+        language="en"
+        attachment={attachment}
+        onChange={setAttachment}
+        disabled={pendingReply}
+      />
+
       {error && (
         <p className="text-sm text-red-600" role="alert">
           {error}
@@ -145,7 +167,7 @@ export function ChildComposer({ threadId }: ChildComposerProps) {
         <button
           type="button"
           onClick={onSend}
-          disabled={pendingReply || !text.trim()}
+          disabled={pendingReply || (!text.trim() && !attachment)}
           className="rounded-card bg-accent px-5 py-2 text-sm font-medium text-white disabled:opacity-40 hover:opacity-90 transition-opacity"
         >
           {pendingReply

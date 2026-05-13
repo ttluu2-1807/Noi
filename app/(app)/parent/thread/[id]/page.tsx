@@ -26,7 +26,7 @@ export default async function ParentThreadPage({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("language_preference")
+    .select("language_preference, family_space_id")
     .eq("id", user.id)
     .maybeSingle();
   const language = (profile?.language_preference ?? "vi") as "vi" | "en";
@@ -102,7 +102,11 @@ export default async function ParentThreadPage({
           </section>
         )}
 
-        <FollowUpInput threadId={thread.id} language={language} />
+        <FollowUpInput
+          threadId={thread.id}
+          language={language}
+          familySpaceId={profile!.family_space_id!}
+        />
       </main>
     </RealtimeBoundary>
   );

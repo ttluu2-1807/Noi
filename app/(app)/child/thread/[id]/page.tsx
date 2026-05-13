@@ -19,6 +19,13 @@ export default async function ChildThreadPage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("family_space_id")
+    .eq("id", user.id)
+    .maybeSingle();
 
   const [{ data: thread }, { data: messages }, { data: checklist }] =
     await Promise.all([
@@ -31,7 +38,7 @@ export default async function ChildThreadPage({
         .maybeSingle(),
       supabase
         .from("messages")
-        .select("id, sender_role, content_vi, content_en, message_type, created_at")
+        .select("id, sender_role, content_vi, content_en, message_type, attachments, created_at")
         .eq("thread_id", params.id)
         .order("created_at", { ascending: true }),
       supabase
@@ -128,12 +135,15 @@ export default async function ChildThreadPage({
             <ChecklistPanel
               items={(checklist ?? []) as ChecklistRow[]}
               language="en"
-              currentUserId={user!.id}
+              currentUserId={user.id}
             />
           </section>
         )}
 
-        <ChildComposer threadId={thread.id} />
+        <ChildComposer
+          threadId={thread.id}
+          familySpaceId={profile!.family_space_id!}
+        />
       </main>
     </RealtimeBoundary>
   );

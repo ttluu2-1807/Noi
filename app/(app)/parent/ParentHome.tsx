@@ -6,12 +6,15 @@ import { useRouter } from "next/navigation";
 import { VoiceInput } from "@/components/VoiceInput";
 import { StreamingResponse } from "@/components/StreamingResponse";
 import { ThreadCard, type ThreadSummary } from "@/components/ThreadCard";
+import { AttachmentPicker } from "@/components/AttachmentPicker";
+import type { Attachment } from "@/lib/storage";
 import type { Language } from "@/lib/language-detect";
 
 interface ParentHomeProps {
   displayName: string;
   recentThreads: ThreadSummary[];
   language: Language;
+  familySpaceId: string;
 }
 
 const T = {
@@ -43,11 +46,17 @@ const T = {
  * UI strings + voice recognition language + content language all key off
  * the parent's `language_preference` (toggleable in Settings).
  */
-export function ParentHome({ displayName, recentThreads, language }: ParentHomeProps) {
+export function ParentHome({ displayName, recentThreads, language, familySpaceId }: ParentHomeProps) {
   const router = useRouter();
   const t = T[language];
   const [query, setQuery] = useState<string | null>(null);
   const [textInput, setTextInput] = useState("");
+  const [attachment, setAttachment] = useState<Attachment | null>(null);
+  // Snapshot of the attachment sent with the current pending query, so
+  // StreamingResponse can forward it to /api/chat. We snapshot rather than
+  // share state because the user might pick a new attachment for their
+  // next question while this one is still streaming.
+  const [pendingAttachment, setPendingAttachment] = useState<Attachment | null>(null);
 
   if (query) {
     return (
@@ -61,6 +70,7 @@ export function ParentHome({ displayName, recentThreads, language }: ParentHomeP
             query={query}
             threadId={null}
             language={language}
+            attachments={pendingAttachment ? [pendingAttachment] : undefined}
             onComplete={(id) => router.push(`/parent/thread/${id}`)}
           />
         </section>
@@ -70,8 +80,16 @@ export function ParentHome({ displayName, recentThreads, language }: ParentHomeP
 
   const submit = (text: string) => {
     const trimmed = text.trim();
-    if (!trimmed) return;
-    setQuery(trimmed);
+    // Either a question or an image is required.
+    if (!trimmed && !attachment) return;
+    setPendingAttachment(attachment);
+    setQuery(
+      trimmed ||
+        (language === "vi"
+          ? "Quý vị có thể giải thích giúp tôi nội dung trong hình ảnh này không?"
+          : "Could you explain what's in this image for me?"),
+    );
+    setAttachment(null);
   };
 
   return (
@@ -110,9 +128,15 @@ export function ParentHome({ displayName, recentThreads, language }: ParentHomeP
               className="w-full rounded-card border border-line bg-white px-4 py-3 leading-relaxed focus:border-accent focus:outline-none resize-none"
             />
           </label>
+          <AttachmentPicker
+            familySpaceId={familySpaceId}
+            language={language}
+            attachment={attachment}
+            onChange={setAttachment}
+          />
           <button
             type="submit"
-            disabled={!textInput.trim()}
+            disabled={!textInput.trim() && !attachment}
             className="w-full rounded-card bg-accent px-4 py-3 font-medium text-white disabled:opacity-40 hover:opacity-90 transition-opacity"
           >
             {t.send}

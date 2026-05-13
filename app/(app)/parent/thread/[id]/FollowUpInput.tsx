@@ -4,11 +4,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { VoiceInput } from "@/components/VoiceInput";
 import { StreamingResponse } from "@/components/StreamingResponse";
+import { AttachmentPicker } from "@/components/AttachmentPicker";
+import type { Attachment } from "@/lib/storage";
 import type { Language } from "@/lib/language-detect";
 
 interface FollowUpInputProps {
   threadId: string;
   language: Language;
+  familySpaceId: string;
 }
 
 const T = {
@@ -21,11 +24,13 @@ const T = {
  * questions. Voice fills the textarea; user reviews then sends.
  * UI labels and recognition language follow the parent's preference.
  */
-export function FollowUpInput({ threadId, language }: FollowUpInputProps) {
+export function FollowUpInput({ threadId, language, familySpaceId }: FollowUpInputProps) {
   const router = useRouter();
   const t = T[language];
   const [query, setQuery] = useState<string | null>(null);
   const [textInput, setTextInput] = useState("");
+  const [attachment, setAttachment] = useState<Attachment | null>(null);
+  const [pendingAttachment, setPendingAttachment] = useState<Attachment | null>(null);
 
   if (query) {
     return (
@@ -35,8 +40,10 @@ export function FollowUpInput({ threadId, language }: FollowUpInputProps) {
           query={query}
           threadId={threadId}
           language={language}
+          attachments={pendingAttachment ? [pendingAttachment] : undefined}
           onComplete={() => {
             setQuery(null);
+            setPendingAttachment(null);
             router.refresh();
           }}
         />
@@ -46,8 +53,15 @@ export function FollowUpInput({ threadId, language }: FollowUpInputProps) {
 
   const submit = (text: string) => {
     const trimmed = text.trim();
-    if (!trimmed) return;
-    setQuery(trimmed);
+    if (!trimmed && !attachment) return;
+    setPendingAttachment(attachment);
+    setQuery(
+      trimmed ||
+        (language === "vi"
+          ? "Quý vị có thể giải thích giúp tôi nội dung trong hình ảnh này không?"
+          : "Could you explain what's in this image for me?"),
+    );
+    setAttachment(null);
     setTextInput("");
   };
 
@@ -76,9 +90,15 @@ export function FollowUpInput({ threadId, language }: FollowUpInputProps) {
             className="w-full rounded-card border border-line bg-white px-4 py-3 leading-relaxed focus:border-accent focus:outline-none resize-none"
           />
         </label>
+        <AttachmentPicker
+          familySpaceId={familySpaceId}
+          language={language}
+          attachment={attachment}
+          onChange={setAttachment}
+        />
         <button
           type="submit"
-          disabled={!textInput.trim()}
+          disabled={!textInput.trim() && !attachment}
           className="w-full rounded-card bg-accent px-4 py-3 font-medium text-white disabled:opacity-40 hover:opacity-90 transition-opacity"
         >
           {t.send}

@@ -1,11 +1,24 @@
 import { NextResponse, type NextRequest } from "next/server";
+import type Anthropic from "@anthropic-ai/sdk";
 import { anthropic, MODEL } from "@/lib/anthropic";
 import { NOI_SYSTEM_PROMPT } from "@/lib/system-prompt";
 import { detectLanguage, otherLanguage, type Language } from "@/lib/language-detect";
 import { translate } from "@/lib/translate";
 import { extractChecklist } from "@/lib/checklist-extract";
 import { generateThreadTitles } from "@/lib/thread-title";
-import { createServerClient } from "@/lib/supabase/server";
+import { createServerClient, createServiceRoleClient } from "@/lib/supabase/server";
+
+/** MIME types Anthropic vision accepts. Matches our storage bucket allow-list. */
+const VISION_MIMES = ["image/jpeg", "image/png", "image/webp", "image/gif"] as const;
+type VisionMime = (typeof VISION_MIMES)[number];
+
+interface AttachmentInput {
+  path: string;
+  mime: string;
+  name?: string;
+  width?: number;
+  height?: number;
+}
 
 export const runtime = "nodejs";
 // Give the full pipeline (stream + 2× translate + extract + title) room to run.
@@ -26,6 +39,16 @@ interface ChatRequest {
    *                        rather than treating it as a fresh question.
    */
   messageType?: "query" | "copilot_comment";
+  /**
+   * Optional attached images (already uploaded to Supabase Storage by the
+   * client). The server fetches each via the service role, base64-encodes
+   * it, and includes it as an image content block on the latest user turn
+   * when calling Claude.
+   *
+   * History images from previous turns are NOT re-sent to Claude — only
+   * the images attached to THIS turn. Keeps token cost predictable.
+   */
+  attachments?: AttachmentInput[];
 }
 
 /**
@@ -115,7 +138,21 @@ export async function POST(request: NextRequest) {
     threadIsNew = !existing.title_vi || !existing.title_en;
   }
 
-  // --- 2. Translate + save the user message ----------------------------
+  // --- 2. Validate attachments + save the user message ------------------
+  // Only keep attachments whose paths live inside the caller's family
+  // folder. Storage RLS already enforces this, but it's a useful belt-
+  // and-braces check that also normalises the data we persist.
+  const rawAttachments: AttachmentInput[] = Array.isArray(body.attachments)
+    ? body.attachments
+    : [];
+  const attachments = rawAttachments.filter(
+    (a): a is AttachmentInput =>
+      typeof a?.path === "string" &&
+      typeof a?.mime === "string" &&
+      a.path.startsWith(`${profile.family_space_id}/`) &&
+      (VISION_MIMES as readonly string[]).includes(a.mime),
+  );
+
   const userOther = await translate(message, inputLang, otherLang);
   const messageType = body.messageType === "copilot_comment" ? "copilot_comment" : "query";
 
@@ -127,6 +164,7 @@ export async function POST(request: NextRequest) {
     content_en: inputLang === "en" ? message : userOther,
     input_language: inputLang,
     message_type: messageType,
+    attachments,
   });
 
   // --- 3. Build Claude's message history -------------------------------
@@ -140,7 +178,7 @@ export async function POST(request: NextRequest) {
     .eq("thread_id", threadId)
     .order("created_at", { ascending: true });
 
-  const claudeMessages: Array<{ role: "user" | "assistant"; content: string }> = (history ?? [])
+  const textOnlyHistory: Array<{ role: "user" | "assistant"; content: string }> = (history ?? [])
     .map((m) => {
       const role = m.sender_role === "assistant" ? ("assistant" as const) : ("user" as const);
       const raw = (inputLang === "vi" ? m.content_vi : m.content_en) ?? "";
@@ -159,13 +197,40 @@ export async function POST(request: NextRequest) {
   // requires strict user/assistant alternation. A copilot comment right
   // after a parent's query should be attached to that query, not sent
   // as a second consecutive user message.
-  const collapsed: typeof claudeMessages = [];
-  for (const msg of claudeMessages) {
+  const collapsed: typeof textOnlyHistory = [];
+  for (const msg of textOnlyHistory) {
     const prev = collapsed[collapsed.length - 1];
     if (prev && prev.role === "user" && msg.role === "user") {
       prev.content = `${prev.content}\n\n${msg.content}`;
     } else {
       collapsed.push(msg);
+    }
+  }
+
+  // --- 3b. Convert to Anthropic message params, attaching images to the
+  // latest user turn if the caller uploaded any. We don't re-send history
+  // images — only the ones uploaded with THIS request.
+  const claudeMessages: Anthropic.MessageParam[] = collapsed.map((m) => ({
+    role: m.role,
+    content: m.content,
+  }));
+
+  if (attachments.length > 0 && claudeMessages.length > 0) {
+    const imageBlocks = await fetchImageBlocks(attachments);
+    if (imageBlocks.length > 0) {
+      const lastIdx = claudeMessages.length - 1;
+      const last = claudeMessages[lastIdx];
+      // Only attach to a user turn (server-only contract; we just built
+      // collapsed so the last user message is the current question).
+      if (last.role === "user" && typeof last.content === "string") {
+        claudeMessages[lastIdx] = {
+          role: "user",
+          content: [
+            ...imageBlocks,
+            { type: "text", text: last.content || describeImagesPrompt(inputLang) },
+          ],
+        };
+      }
     }
   }
 
@@ -180,7 +245,7 @@ export async function POST(request: NextRequest) {
           model: MODEL,
           system: NOI_SYSTEM_PROMPT,
           max_tokens: 1500,
-          messages: collapsed,
+          messages: claudeMessages,
         });
 
         for await (const event of stream) {
@@ -270,4 +335,55 @@ export async function POST(request: NextRequest) {
       "X-Thread-Id": threadId,
     },
   });
+}
+
+/**
+ * Fetch each attachment from Supabase Storage and turn it into an
+ * Anthropic image content block. Service-role client bypasses RLS
+ * because we already verified the path lives in the caller's family
+ * folder (see `attachments` filtering in the POST handler).
+ *
+ * Bad / missing files are skipped silently — we still want to answer
+ * the user's text question even if one image failed to load.
+ */
+async function fetchImageBlocks(
+  attachments: AttachmentInput[],
+): Promise<Anthropic.ImageBlockParam[]> {
+  const admin = createServiceRoleClient();
+  const blocks: Anthropic.ImageBlockParam[] = [];
+
+  for (const att of attachments) {
+    try {
+      const { data, error } = await admin.storage
+        .from("attachments")
+        .download(att.path);
+      if (error || !data) {
+        console.warn("[api/chat] could not fetch attachment", att.path, error?.message);
+        continue;
+      }
+      const buf = Buffer.from(await data.arrayBuffer());
+      blocks.push({
+        type: "image",
+        source: {
+          type: "base64",
+          media_type: att.mime as VisionMime,
+          data: buf.toString("base64"),
+        },
+      });
+    } catch (err) {
+      console.warn("[api/chat] attachment fetch threw", att.path, err);
+    }
+  }
+
+  return blocks;
+}
+
+/**
+ * Default text for image-only turns (the user attached photos but typed
+ * nothing). Phrased so Claude knows it's expected to interpret the image.
+ */
+function describeImagesPrompt(lang: Language): string {
+  return lang === "vi"
+    ? "Quý vị có thể giải thích giúp tôi nội dung trong hình ảnh này không?"
+    : "Could you explain what's in this image for me?";
 }

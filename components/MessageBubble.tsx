@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Language } from "@/lib/language-detect";
 import { isTTSSupported, hasVoiceFor, speak, stopSpeaking } from "@/lib/tts";
 import { renderTextWithLinks } from "@/lib/render-text";
+import { getAttachmentSignedUrl, type Attachment } from "@/lib/storage";
 
 export interface MessageRow {
   id: string;
@@ -11,6 +12,7 @@ export interface MessageRow {
   content_vi: string | null;
   content_en: string | null;
   message_type: string | null;
+  attachments?: Attachment[] | null;
   created_at: string;
 }
 
@@ -90,15 +92,20 @@ export function MessageBubble({
       {roleLabel && (
         <div className="text-xs text-muted">{roleLabel}</div>
       )}
-      <div
-        className={`rounded-bubble p-4 leading-relaxed whitespace-pre-wrap ${
-          isAssistant
-            ? "bg-white border border-line"
-            : "bg-accent/10 text-ink"
-        }`}
-      >
-        {renderTextWithLinks(content)}
-      </div>
+      {message.attachments && message.attachments.length > 0 && (
+        <AttachmentGrid attachments={message.attachments} />
+      )}
+      {content.trim().length > 0 && (
+        <div
+          className={`rounded-bubble p-4 leading-relaxed whitespace-pre-wrap ${
+            isAssistant
+              ? "bg-white border border-line"
+              : "bg-accent/10 text-ink"
+          }`}
+        >
+          {renderTextWithLinks(content)}
+        </div>
+      )}
       <div className="flex items-center gap-3 text-xs text-muted">
         {showTTS && content.trim().length > 0 && isTTSSupported() && hasVoiceFor(lang) && (
           <button
@@ -128,5 +135,75 @@ export function MessageBubble({
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * Renders the attached images for a message. Each image is fetched
+ * via a short-lived signed URL (RLS still applies — only family
+ * members can mint these). Renders as a row of thumbnails that
+ * expand to full size when tapped (via the native browser preview
+ * triggered by an anchor with the same href).
+ */
+function AttachmentGrid({ attachments }: { attachments: Attachment[] }) {
+  return (
+    <div className="flex flex-wrap gap-2 my-1">
+      {attachments.map((att) => (
+        <AttachmentThumb key={att.path} attachment={att} />
+      ))}
+    </div>
+  );
+}
+
+function AttachmentThumb({ attachment }: { attachment: Attachment }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    getAttachmentSignedUrl(attachment.path).then((u) => {
+      if (cancelled) return;
+      if (u) setUrl(u);
+      else setFailed(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [attachment.path]);
+
+  // Reserve space using stored dimensions when available — prevents
+  // layout shift as the signed URL resolves.
+  const ratio =
+    attachment.width && attachment.height
+      ? attachment.width / attachment.height
+      : 1;
+
+  if (failed) {
+    return (
+      <div className="h-32 w-32 flex items-center justify-center rounded-card border border-line bg-bg text-xs text-muted">
+        Image unavailable
+      </div>
+    );
+  }
+
+  if (!url) {
+    return (
+      <div
+        className="rounded-card border border-line bg-bg animate-pulse"
+        style={{ height: "8rem", width: `${8 * ratio}rem` }}
+      />
+    );
+  }
+
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer" className="block">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={url}
+        alt={attachment.name ?? "Attached image"}
+        loading="lazy"
+        className="max-h-64 max-w-full rounded-card border border-line object-contain bg-white"
+      />
+    </a>
   );
 }
