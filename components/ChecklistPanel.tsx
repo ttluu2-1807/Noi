@@ -26,6 +26,10 @@ interface ChecklistPanelProps {
  */
 export function ChecklistPanel({ items, language, currentUserId }: ChecklistPanelProps) {
   const [rows, setRows] = useState(items);
+  // Track which row was JUST toggled-to-complete so we can play the
+  // green flash animation on it. We clear it after ~1s so a re-toggle
+  // can play it again.
+  const [celebratingId, setCelebratingId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   if (rows.length === 0) return null;
@@ -37,6 +41,12 @@ export function ChecklistPanel({ items, language, currentUserId }: ChecklistPane
     setRows((prev) =>
       prev.map((r) => (r.id === row.id ? { ...r, is_completed: next } : r)),
     );
+
+    // Only celebrate ticks (not un-ticks).
+    if (next) {
+      setCelebratingId(row.id);
+      setTimeout(() => setCelebratingId((id) => (id === row.id ? null : id)), 800);
+    }
 
     startTransition(async () => {
       const supabase = createClient();
@@ -56,6 +66,7 @@ export function ChecklistPanel({ items, language, currentUserId }: ChecklistPane
             r.id === row.id ? { ...r, is_completed: !next } : r,
           ),
         );
+        setCelebratingId(null);
       }
     });
   };
@@ -69,16 +80,20 @@ export function ChecklistPanel({ items, language, currentUserId }: ChecklistPane
           const label = language === "vi" ? row.text_vi : row.text_en;
           return (
             <li key={row.id}>
-              <label className="flex cursor-pointer items-start gap-4 rounded-card border border-line bg-white p-4 transition-colors has-[:checked]:border-accent/60 has-[:checked]:bg-accent/5">
+              <label
+                className={`flex cursor-pointer items-start gap-4 rounded-card border border-line bg-white p-4 transition-colors has-[:checked]:border-accent/60 has-[:checked]:bg-accent/5 ${
+                  celebratingId === row.id ? "animate-tick-flash" : ""
+                }`}
+              >
                 <input
                   type="checkbox"
                   checked={row.is_completed}
                   onChange={() => toggle(row)}
-                  className="mt-1 h-5 w-5 shrink-0 accent-[#1D9E75]"
+                  className="mt-1 h-5 w-5 shrink-0 accent-[#1D9E75] transition-transform active:scale-90"
                   aria-label={label}
                 />
                 <span
-                  className={`leading-relaxed ${
+                  className={`leading-relaxed transition-colors ${
                     row.is_completed ? "text-muted line-through" : "text-ink"
                   }`}
                 >

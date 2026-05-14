@@ -6,6 +6,7 @@ import { ChecklistPanel, type ChecklistRow } from "@/components/ChecklistPanel";
 import { RealtimeBoundary } from "@/components/RealtimeBoundary";
 import { TagSelector } from "@/components/TagSelector";
 import { ThreadTabs } from "@/components/ThreadTabs";
+import { DayDivider, withDayDividers } from "@/components/DayDivider";
 import { listFamilyTags } from "@/lib/tags";
 import { ChildComposer } from "./ChildComposer";
 import { setThreadStatus, setThreadTags } from "./actions";
@@ -27,10 +28,11 @@ export default async function ChildThreadPage({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("family_space_id")
+    .select("family_space_id, auto_read_responses")
     .eq("id", user.id)
     .maybeSingle();
   if (!profile?.family_space_id) return null;
+  const autoRead = profile.auto_read_responses ?? false;
 
   const [{ data: thread }, { data: messages }, { data: checklist }, familyTags] =
     await Promise.all([
@@ -139,14 +141,23 @@ export default async function ChildThreadPage({
           <>
             {messageList.length > 0 && (
               <section className="space-y-4">
-                {messageList.map((m) => (
-                  <MessageBubble
-                    key={m.id}
-                    message={m as MessageRow}
-                    viewerLanguage="en"
-                    allowToggle
-                  />
-                ))}
+                {withDayDividers(messageList).map((item) =>
+                  item.type === "divider" ? (
+                    <DayDivider
+                      key={`div-${item.iso}`}
+                      iso={item.iso}
+                      language="en"
+                    />
+                  ) : (
+                    <MessageBubble
+                      key={item.message.id}
+                      message={item.message as MessageRow}
+                      viewerLanguage="en"
+                      allowToggle
+                      autoRead={autoRead}
+                    />
+                  ),
+                )}
               </section>
             )}
             <ChildComposer

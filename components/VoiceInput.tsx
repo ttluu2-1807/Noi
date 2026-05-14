@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
+import { VoiceWaveform } from "@/components/VoiceWaveform";
 import type { Language } from "@/lib/language-detect";
 
 interface VoiceInputProps {
@@ -96,6 +97,10 @@ export function VoiceInput({
           />
         </svg>
       </button>
+
+      {/* Live waveform under the mic — reassures the user that the mic
+          is actually engaged. Synthetic but alive. */}
+      <VoiceWaveform active={active} />
 
       <div className="min-h-[3rem] max-w-md text-center text-muted">
         {transcript ? (

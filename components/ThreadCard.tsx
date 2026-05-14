@@ -82,7 +82,7 @@ export function ThreadCard({
   return (
     <Link
       href={`${basePath}/${thread.id}`}
-      className={`group block rounded-card border bg-white px-5 py-4 transition-all hover:border-accent/40 hover:shadow-sm active:scale-[0.995] ${
+      className={`group block rounded-card border bg-white px-5 py-4 transition-all hover:border-accent/40 hover:shadow-sm active:scale-[0.995] animate-fade-rise ${
         highlight && status === "open"
           ? "border-l-4 border-l-accent border-line"
           : "border-line"

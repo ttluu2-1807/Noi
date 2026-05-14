@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { VoiceInput } from "@/components/VoiceInput";
 import { StreamingResponse } from "@/components/StreamingResponse";
@@ -8,6 +8,9 @@ import { ThreadCard, type ThreadSummary, type LatestMessageSummary } from "@/com
 import { AttachmentPicker } from "@/components/AttachmentPicker";
 import { HeaderMenu } from "@/components/HeaderMenu";
 import { StatusTabs } from "@/components/StatusTabs";
+import { HeroIllustration } from "@/components/HeroIllustration";
+import { SuggestedQuestions } from "@/components/SuggestedQuestions";
+import { timeOfDayGreeting } from "@/lib/greeting";
 import type { Attachment } from "@/lib/storage";
 import type { Language } from "@/lib/language-detect";
 
@@ -25,7 +28,6 @@ interface ParentHomeProps {
 
 const T = {
   vi: {
-    greeting: (name: string) => `Dạ, ${name}`,
     prompt: "Quý vị muốn hỏi điều gì hôm nay?",
     settings: "Cài đặt",
     placeholder: "Hoặc gõ câu hỏi ở đây...",
@@ -34,7 +36,6 @@ const T = {
     recentHeading: "Câu hỏi gần đây",
   },
   en: {
-    greeting: (name: string) => `Hi, ${name}`,
     prompt: "What would you like to ask today?",
     settings: "Settings",
     placeholder: "Or type your question here…",
@@ -73,6 +74,16 @@ export function ParentHome({
   // share state because the user might pick a new attachment for their
   // next question while this one is still streaming.
   const [pendingAttachment, setPendingAttachment] = useState<Attachment | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Compute greeting client-side so it picks up the user's local hour.
+  // Server-rendered greeting would use Vercel's UTC clock and be wrong.
+  const [greeting, setGreeting] = useState(() =>
+    timeOfDayGreeting(displayName, language, new Date()),
+  );
+  useEffect(() => {
+    setGreeting(timeOfDayGreeting(displayName, language, new Date()));
+  }, [displayName, language]);
 
   if (query) {
     return (
@@ -112,7 +123,7 @@ export function ParentHome({
     <main className="mx-auto max-w-md px-6 py-10 space-y-10">
       <header className="flex items-start justify-between gap-4">
         <div className="space-y-1 min-w-0 flex-1">
-          <h1 className="text-2xl font-medium truncate">{t.greeting(displayName)}</h1>
+          <h1 className="text-2xl font-medium truncate">{greeting}</h1>
           <p className="text-muted">{t.prompt}</p>
         </div>
         <HeaderMenu
@@ -140,6 +151,7 @@ export function ParentHome({
           <label className="block">
             <span className="sr-only">{t.placeholder}</span>
             <textarea
+              ref={textareaRef}
               value={textInput}
               onChange={(e) => setTextInput(e.target.value)}
               placeholder={t.placeholder}
@@ -156,12 +168,27 @@ export function ParentHome({
           <button
             type="submit"
             disabled={!textInput.trim() && !attachment}
-            className="w-full rounded-card bg-accent px-4 py-3 font-medium text-white disabled:opacity-40 hover:opacity-90 transition-opacity"
+            className="w-full rounded-card bg-accent px-4 py-3 font-medium text-white disabled:opacity-40 hover:opacity-90 transition-transform active:scale-[0.98]"
           >
             {t.send}
           </button>
         </form>
       </section>
+
+      {/* Empty state: hero illustration + suggested first questions.
+          Only shown if there are no threads of either status. */}
+      {openCount === 0 && doneCount === 0 && (
+        <section className="text-center space-y-6 pt-2">
+          <HeroIllustration className="w-44 h-20 text-accent/70 mx-auto" />
+          <SuggestedQuestions
+            language={language}
+            onPick={(q) => {
+              setTextInput(q);
+              textareaRef.current?.focus();
+            }}
+          />
+        </section>
+      )}
 
       {(openCount > 0 || doneCount > 0) && (
         <section className="space-y-3">

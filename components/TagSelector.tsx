@@ -120,7 +120,7 @@ export function TagSelector({
         return (
           <span
             key={tag}
-            className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs"
+            className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs animate-pop-in"
             style={{ backgroundColor: c.bg, color: c.fg, borderColor: c.border }}
           >
             {tag}

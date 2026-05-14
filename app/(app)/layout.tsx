@@ -19,12 +19,20 @@ export default async function AppLayout({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, role, family_space_id, display_name, language_preference")
+    .select("id, role, family_space_id, display_name, language_preference, onboarded_at")
     .eq("id", user.id)
     .maybeSingle();
 
   if (!profile) redirect("/setup");
   if (!profile.family_space_id) redirect("/join");
+  // Parents see a 3-screen welcome tour the first time they sign in.
+  // Children skip it for now — they're bilingual and figure the UI out
+  // faster. The tour lives at /onboarding (outside this layout group)
+  // so its own redirect-when-done can send users back here without
+  // looping through this guard.
+  if (profile.role === "parent" && !profile.onboarded_at) {
+    redirect("/onboarding");
+  }
 
   return <>{children}</>;
 }

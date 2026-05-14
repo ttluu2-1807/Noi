@@ -6,6 +6,7 @@ import { ChecklistPanel, type ChecklistRow } from "@/components/ChecklistPanel";
 import { RealtimeBoundary } from "@/components/RealtimeBoundary";
 import { TagSelector } from "@/components/TagSelector";
 import { ThreadTabs } from "@/components/ThreadTabs";
+import { DayDivider, withDayDividers } from "@/components/DayDivider";
 import { listFamilyTags } from "@/lib/tags";
 import { FollowUpInput } from "./FollowUpInput";
 // Shared with the child side — both roles can edit status + tags.
@@ -46,12 +47,13 @@ export default async function ParentThreadPage({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("language_preference, family_space_id")
+    .select("language_preference, family_space_id, auto_read_responses")
     .eq("id", user.id)
     .maybeSingle();
   if (!profile?.family_space_id) return null;
   const language = (profile.language_preference ?? "vi") as "vi" | "en";
   const t = T[language];
+  const autoRead = profile.auto_read_responses ?? false;
 
   const [{ data: thread }, { data: messages }, { data: checklist }, familyTags] =
     await Promise.all([
@@ -150,15 +152,24 @@ export default async function ParentThreadPage({
         {tab === "chat" ? (
           <>
             <section className="space-y-5">
-              {messageList.map((m) => (
-                <MessageBubble
-                  key={m.id}
-                  message={m as MessageRow}
-                  viewerLanguage={language}
-                  allowToggle
-                  showTTS
-                />
-              ))}
+              {withDayDividers(messageList).map((item) =>
+                item.type === "divider" ? (
+                  <DayDivider
+                    key={`div-${item.iso}`}
+                    iso={item.iso}
+                    language={language}
+                  />
+                ) : (
+                  <MessageBubble
+                    key={item.message.id}
+                    message={item.message as MessageRow}
+                    viewerLanguage={language}
+                    allowToggle
+                    showTTS
+                    autoRead={autoRead}
+                  />
+                ),
+              )}
             </section>
             <FollowUpInput
               threadId={thread.id}

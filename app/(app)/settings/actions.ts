@@ -35,3 +35,27 @@ export async function updateLanguagePreference(formData: FormData) {
     .eq("id", user.id);
   revalidatePath("/settings");
 }
+
+/**
+ * Toggle auto-TTS — when on, assistant messages are read aloud
+ * automatically as they arrive. Off by default (the user may be in a
+ * place where audio is disruptive). Setting persists in the profile so
+ * it follows the user across devices.
+ */
+export async function updateAutoReadResponses(formData: FormData) {
+  const value = formData.get("enabled") === "on";
+
+  const supabase = createServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  await supabase
+    .from("profiles")
+    .update({ auto_read_responses: value })
+    .eq("id", user.id);
+  revalidatePath("/settings");
+  revalidatePath("/parent");
+  revalidatePath("/child");
+}

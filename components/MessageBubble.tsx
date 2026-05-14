@@ -29,6 +29,14 @@ interface MessageBubbleProps {
    * not just AI ones. Pass false to suppress.
    */
   showTTS?: boolean;
+  /**
+   * When true AND this message is an assistant message AND we haven't
+   * already played it this session, start TTS automatically on mount.
+   * Tied to the user's `auto_read_responses` preference. We track
+   * per-message-id in sessionStorage to avoid replaying historical
+   * messages every time a user reloads the page.
+   */
+  autoRead?: boolean;
 }
 
 const ROLE_LABEL: Record<Language, Record<NonNullable<MessageRow["sender_role"]>, string>> = {
@@ -57,6 +65,7 @@ export function MessageBubble({
   viewerLanguage,
   allowToggle = true,
   showTTS = true,
+  autoRead = false,
 }: MessageBubbleProps) {
   const [lang, setLang] = useState<Language>(viewerLanguage);
   const [speaking, setSpeaking] = useState(false);
@@ -87,8 +96,36 @@ export function MessageBubble({
     });
   };
 
+  // Auto-read freshly-arrived assistant messages when the user has
+  // opted into auto-TTS. SessionStorage gate: we only play each
+  // message id once per browser session, so reloading the page doesn't
+  // replay old responses from the top.
+  useEffect(() => {
+    if (!autoRead) return;
+    if (!isAssistant) return;
+    if (!content.trim()) return;
+    if (!isTTSSupported()) return;
+    if (!hasVoiceFor(lang)) return;
+
+    if (typeof window === "undefined") return;
+    const key = `noi:autoread:${message.id}`;
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, "1");
+
+    setSpeaking(true);
+    speak(content, {
+      lang,
+      rate: DEFAULT_RATE[lang],
+      onEnd: () => setSpeaking(false),
+      onError: () => setSpeaking(false),
+    });
+    // Only re-trigger if the message id or the autoRead prop changes —
+    // don't restart on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRead, message.id]);
+
   return (
-    <div className={`space-y-1 ${isAssistant ? "" : "ml-6"}`}>
+    <div className={`space-y-1 animate-spring-in ${isAssistant ? "" : "ml-6"}`}>
       {roleLabel && (
         <div className="text-xs text-muted">{roleLabel}</div>
       )}

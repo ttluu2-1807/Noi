@@ -42,11 +42,38 @@ const config: Config = {
           "50%": { transform: "translateX(0)" },
           "100%": { transform: "translateX(50%)" },
         },
+        // Atmosphere: lists fade-and-rise on mount, message bubbles
+        // spring in when they're newly added, tags pop in, and the
+        // checklist tick flashes green before fading to the resolved
+        // line-through state.
+        fadeRise: {
+          "0%": { opacity: "0", transform: "translateY(8px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        springIn: {
+          "0%": { opacity: "0", transform: "scale(0.95) translateY(6px)" },
+          "70%": { opacity: "1", transform: "scale(1.02) translateY(0)" },
+          "100%": { transform: "scale(1) translateY(0)" },
+        },
+        popIn: {
+          "0%": { opacity: "0", transform: "scale(0.6)" },
+          "70%": { opacity: "1", transform: "scale(1.1)" },
+          "100%": { transform: "scale(1)" },
+        },
+        tickFlash: {
+          "0%": { backgroundColor: "rgba(29, 158, 117, 0)" },
+          "30%": { backgroundColor: "rgba(29, 158, 117, 0.2)" },
+          "100%": { backgroundColor: "rgba(29, 158, 117, 0)" },
+        },
       },
       animation: {
         "pulse-ring": "pulseRing 1.4s cubic-bezier(0.4, 0, 0.6, 1) infinite",
         "dot-pulse": "dotPulse 1.4s ease-in-out infinite",
         "nav-progress": "navProgress 1.2s ease-out forwards",
+        "fade-rise": "fadeRise 0.35s ease-out both",
+        "spring-in": "springIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both",
+        "pop-in": "popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both",
+        "tick-flash": "tickFlash 0.8s ease-out",
       },
     },
   },
