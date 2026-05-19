@@ -17,8 +17,8 @@
 
 const ENDPOINT = "https://api.elevenlabs.io/v1";
 
-/** Sarah — warm female multilingual voice from the shared library. */
-export const NOI_VOICE_ID = "EXAVITQu4vr4xnSDxMaL";
+/** Custom voice picked by the user — multilingual, used for both vi and en. */
+export const NOI_VOICE_ID = "a3AkyqGG4v8Pg7SWQ0Y3";
 
 /** Model that handles Vietnamese tones reasonably well. */
 export const NOI_MODEL_ID = "eleven_multilingual_v2";
