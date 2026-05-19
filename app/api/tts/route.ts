@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createHash } from "crypto";
-import { synthesizeSpeech, NOI_VOICE_ID, NOI_MODEL_ID } from "@/lib/elevenlabs";
+import { synthesizeSpeech, voiceFor } from "@/lib/elevenlabs";
+import type { Language } from "@/lib/language-detect";
 import { createServerClient, createServiceRoleClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -12,8 +13,12 @@ const MAX_CHARS = 5000;
 
 interface TtsRequest {
   text: string;
-  /** Currently unused for routing — same voice handles both languages. */
-  language?: "vi" | "en";
+  /**
+   * Drives voice selection. vi → Ngan (Vietnamese native), en →
+   * Alexandra (American English). Defaults to vi if omitted —
+   * Vietnamese is the parent's primary use case.
+   */
+  language?: Language;
 }
 
 /**
@@ -62,9 +67,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const language: Language = body.language === "en" ? "en" : "vi";
+  const { voiceId, modelId } = voiceFor(language);
+  // Cache key includes voice + model so the vi and en caches stay
+  // separate, and any future voice swap auto-invalidates the cache.
   const cacheKey =
     createHash("sha256")
-      .update(`${NOI_VOICE_ID}|${NOI_MODEL_ID}|${text}`)
+      .update(`${voiceId}|${modelId}|${text}`)
       .digest("hex") + ".mp3";
 
   const admin = createServiceRoleClient();
@@ -89,7 +98,7 @@ export async function POST(request: NextRequest) {
   // --- Cache miss: call ElevenLabs ------------------------------------
   let mp3: ArrayBuffer;
   try {
-    mp3 = await synthesizeSpeech(text);
+    mp3 = await synthesizeSpeech(text, language);
   } catch (err) {
     console.error("[api/tts] ElevenLabs failed:", err);
     return NextResponse.json({ error: "TTS generation failed" }, { status: 502 });

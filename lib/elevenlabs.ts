@@ -1,40 +1,66 @@
+import type { Language } from "./language-detect";
+
 /**
  * ElevenLabs text-to-speech wrapper. Server-side only — the API key is
  * in process.env.ELEVENLABS_API_KEY (never NEXT_PUBLIC_).
  *
- * We use a single multilingual voice for both Vietnamese and English so
- * Noi has a consistent identity. "Sarah" was picked for being warm,
- * female, and one of the better multilingual voices in ElevenLabs'
- * shared library — including reasonable Vietnamese tones.
+ * One voice per language, picked at call time:
  *
- * Model: eleven_multilingual_v2 — stable, supports Vietnamese, ~600ms
- * first-byte latency. v3 exists but isn't always GA on free tier.
+ *   - vi → Ngan (Vietnamese-native, central accent, professional voice).
+ *          Best with eleven_turbo_v2_5 per ElevenLabs' voice metadata.
+ *   - en → Alexandra (American English, conversational professional).
+ *          Best with eleven_multilingual_v2.
  *
- * If you want to swap voices later, change NOI_VOICE_ID. The cache is
- * keyed on (voice_id + text) so changing the voice invalidates the
- * cache automatically — old MP3s sit in storage until they age out.
+ * Why per-language: a Vietnamese voice butchers English (heavy
+ * reading-accent) and a multilingual English voice loses tone accuracy
+ * in Vietnamese. Native voices for each side give the best fidelity
+ * for the audience that hears each language.
+ *
+ * Cache key is composed of voice_id + model_id + text, so swapping
+ * either constant invalidates the cache automatically — no manual
+ * cache purge required when changing voices.
  */
 
 const ENDPOINT = "https://api.elevenlabs.io/v1";
 
-/** Custom voice picked by the user — multilingual, used for both vi and en. */
-export const NOI_VOICE_ID = "a3AkyqGG4v8Pg7SWQ0Y3";
+interface VoiceConfig {
+  voiceId: string;
+  modelId: string;
+}
 
-/** Model that handles Vietnamese tones reasonably well. */
-export const NOI_MODEL_ID = "eleven_multilingual_v2";
+const VOICES: Record<Language, VoiceConfig> = {
+  vi: {
+    voiceId: "a3AkyqGG4v8Pg7SWQ0Y3", // Ngan — VI native, central accent
+    modelId: "eleven_turbo_v2_5",
+  },
+  en: {
+    voiceId: "kdmDKE6EkgrWrrykO9Qt", // Alexandra — EN American, conversational
+    modelId: "eleven_multilingual_v2",
+  },
+};
+
+/** Get the voice config used for the given language. */
+export function voiceFor(language: Language): VoiceConfig {
+  return VOICES[language];
+}
 
 /**
- * Synthesize text to MP3 audio. Returns the raw MP3 bytes.
- * Throws if the API call fails — caller should fall back to browser TTS.
+ * Synthesize text to MP3 audio using the language's configured voice.
+ * Returns raw MP3 bytes. Throws if the API call fails — caller should
+ * fall back to browser TTS.
  */
-export async function synthesizeSpeech(text: string): Promise<ArrayBuffer> {
+export async function synthesizeSpeech(
+  text: string,
+  language: Language,
+): Promise<ArrayBuffer> {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) {
     throw new Error("ELEVENLABS_API_KEY is not set");
   }
+  const { voiceId, modelId } = VOICES[language];
 
   const res = await fetch(
-    `${ENDPOINT}/text-to-speech/${NOI_VOICE_ID}?output_format=mp3_44100_128`,
+    `${ENDPOINT}/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
     {
       method: "POST",
       headers: {
@@ -44,12 +70,12 @@ export async function synthesizeSpeech(text: string): Promise<ArrayBuffer> {
       },
       body: JSON.stringify({
         text,
-        model_id: NOI_MODEL_ID,
+        model_id: modelId,
         voice_settings: {
           stability: 0.5,
           similarity_boost: 0.75,
-          // style: 0.0 → most natural / least dramatic
-          // use_speaker_boost: true → louder, clearer
+          // style: 0 = most natural / least dramatic
+          // use_speaker_boost: louder, clearer for elderly listeners
           style: 0,
           use_speaker_boost: true,
         },
