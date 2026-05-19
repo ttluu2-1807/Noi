@@ -53,10 +53,11 @@ const TTS_STOP: Record<Language, string> = {
   en: "Stop",
 };
 
-// Slightly slower default for Vietnamese — elderly listeners follow
-// better at ~0.85x. English at 1.0x is fine for a bilingual child.
+// ElevenLabs voices are naturally paced — no need to slow them down
+// like we did for browser SpeechSynthesis. Keep 1.0x for both; users
+// can adjust via Settings later if we add a speed control.
 const DEFAULT_RATE: Record<Language, number> = {
-  vi: 0.85,
+  vi: 1.0,
   en: 1.0,
 };
 
