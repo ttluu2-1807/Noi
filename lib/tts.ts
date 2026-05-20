@@ -6,15 +6,30 @@ import type { Language } from "./language-detect";
  * Text-to-speech client. Two-tier strategy:
  *
  *   1. Primary — POST /api/tts → ElevenLabs MP3 (server-cached in
- *      Supabase Storage). Genuinely human voice in both Vietnamese
- *      and English. ~300–800ms first byte; cache hits are instant.
+ *      Supabase Storage). Natural per-language voices in both
+ *      Vietnamese and English. ~300–800ms first byte; cache hits
+ *      are instant.
  *   2. Fallback — browser SpeechSynthesis. Used if /api/tts errors
- *      (network down, quota exceeded, ElevenLabs outage). Robotic
- *      but functional. Most matters when the parent is offline.
+ *      (network down, quota exceeded, ElevenLabs outage).
  *
- * Public surface is unchanged from the old browser-only implementation:
- * `speak(text, options)` → fires audio, calls onEnd / onError. Callers
- * don't need to know which tier served the audio.
+ * ## Singleton playback rule
+ *
+ * Only ONE audio source can play at a time across the whole app.
+ * Tapping "Nghe" on a different message — or pressing Stop — must
+ * cancel any prior playback AND any in-flight fetch that hasn't
+ * resolved yet. Without this, rapid-fire taps would race: two
+ * fetches resolve, both play, you hear overlap.
+ *
+ * We enforce singleton by:
+ *   - Bumping a `currentRequestId` on every speak() and stopSpeaking().
+ *   - Aborting the in-flight fetch via AbortController.
+ *   - Comparing the captured `myRequestId` after each await point —
+ *     if we've been superseded, we exit quietly AND fire `onEnd` so
+ *     the caller's UI ("Listen" ↔ "Stop") clears its state.
+ *
+ * Without that onEnd-on-supersession step, a rapid tap leaves the
+ * first button stuck on "Stop" forever (its onEnd never fires) — a
+ * UX bug the user hit during testing.
  */
 
 const LANG_CODE: Record<Language, string> = {
@@ -22,10 +37,14 @@ const LANG_CODE: Record<Language, string> = {
   en: "en-AU",
 };
 
-// Module-level handles so stopSpeaking() can cancel either tier.
+// Module-level handles. Singleton across the app.
 let currentAudio: HTMLAudioElement | null = null;
 let currentObjectUrl: string | null = null;
-let currentUtterance: SpeechSynthesisUtterance | null = null;
+let currentAbortController: AbortController | null = null;
+// Monotonic request id; every speak() and stopSpeaking() bumps it.
+// Captured at speak() start; checked after each await; if it ever
+// differs from the latest, we've been superseded.
+let currentRequestId = 0;
 
 export interface SpeakOptions {
   lang: Language;
@@ -35,41 +54,44 @@ export interface SpeakOptions {
   onError?: (err: unknown) => void;
 }
 
-/**
- * Are we in a context that can play audio at all? True in any modern
- * browser. We always return true now that we have a server-side TTS
- * primary — the browser SpeechSynthesis voice catalogue doesn't
- * matter anymore.
- */
 export function isTTSSupported(): boolean {
   if (typeof window === "undefined") return false;
   return typeof window.Audio === "function";
 }
 
-/**
- * Kept for compatibility with components that previously hid the
- * speaker button on devices without a matching system voice. With
- * server TTS we always have a voice — return true so the button
- * stays visible.
- */
 export function hasVoiceFor(_lang: Language): boolean {
   return isTTSSupported();
 }
 
-/** Stop whichever tier is currently playing. */
+/**
+ * Stop whatever is currently playing AND invalidate any in-flight fetch.
+ * Safe to call repeatedly. Does not fire any onEnd callbacks itself —
+ * callers that wired up onEnd to clear their own UI state should also
+ * clear it explicitly when they call this (as MessageBubble does).
+ */
 export function stopSpeaking(): void {
+  // Bump first so any in-flight speak() awaiting a fetch sees it lost
+  // the race and bails out before touching currentAudio.
+  currentRequestId++;
+
+  if (currentAbortController) {
+    currentAbortController.abort();
+    currentAbortController = null;
+  }
+
   if (currentAudio) {
     currentAudio.pause();
     currentAudio.src = "";
     currentAudio = null;
   }
+
   if (currentObjectUrl) {
     URL.revokeObjectURL(currentObjectUrl);
     currentObjectUrl = null;
   }
+
   if (typeof window !== "undefined" && "speechSynthesis" in window) {
     window.speechSynthesis.cancel();
-    currentUtterance = null;
   }
 }
 
@@ -78,7 +100,16 @@ export async function speak(text: string, options: SpeakOptions): Promise<void> 
     options.onError?.(new Error("Audio not supported"));
     return;
   }
+
+  // Kill any prior playback / in-flight fetch before claiming our slot.
   stopSpeaking();
+
+  const myRequestId = ++currentRequestId;
+  const abortController = new AbortController();
+  currentAbortController = abortController;
+
+  // Helper: have we been superseded by a later speak() or stopSpeaking()?
+  const isStale = () => myRequestId !== currentRequestId;
 
   // --- Tier 1: server-side ElevenLabs --------------------------------
   try {
@@ -86,16 +117,35 @@ export async function speak(text: string, options: SpeakOptions): Promise<void> 
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text, language: options.lang }),
+      signal: abortController.signal,
     });
+
+    if (isStale()) {
+      // A newer call took over while we were awaiting the response.
+      // Fire onEnd so our caller's UI ("Stop" button) flips back to
+      // "Listen" — otherwise it sits stuck forever.
+      options.onEnd?.();
+      return;
+    }
+
     if (!res.ok) throw new Error(`tts route ${res.status}`);
 
     const blob = await res.blob();
+    if (isStale()) {
+      options.onEnd?.();
+      return;
+    }
+
     const url = URL.createObjectURL(blob);
     currentObjectUrl = url;
 
     const audio = new Audio(url);
     audio.playbackRate = options.rate ?? 1;
+
     audio.onended = () => {
+      // Only OUR onended should clear state — if we've been superseded,
+      // a newer speak() owns the cleanup.
+      if (isStale()) return;
       if (currentObjectUrl) {
         URL.revokeObjectURL(currentObjectUrl);
         currentObjectUrl = null;
@@ -103,36 +153,55 @@ export async function speak(text: string, options: SpeakOptions): Promise<void> 
       currentAudio = null;
       options.onEnd?.();
     };
+
     audio.onerror = (e) => {
+      if (isStale()) return;
       if (currentObjectUrl) {
         URL.revokeObjectURL(currentObjectUrl);
         currentObjectUrl = null;
       }
       currentAudio = null;
-      // Fallback if the blob couldn't be decoded.
-      fallbackBrowserTTS(text, options);
       options.onError?.(e);
+      // Audio element couldn't decode the blob — fall through to
+      // browser TTS as a last resort.
+      fallbackBrowserTTS(text, options);
     };
 
     currentAudio = audio;
     await audio.play();
     return;
   } catch (err) {
-    // Network error / 5xx / quota exhausted — fall back silently.
+    // AbortError = stopSpeaking() / newer speak() cancelled us. Fire
+    // onEnd so caller clears its UI, then exit quietly.
+    if ((err as { name?: string })?.name === "AbortError") {
+      options.onEnd?.();
+      return;
+    }
+    if (isStale()) {
+      options.onEnd?.();
+      return;
+    }
     console.warn("[tts] server tier failed, falling back to browser:", err);
   }
 
   // --- Tier 2: browser SpeechSynthesis ------------------------------
+  if (isStale()) {
+    options.onEnd?.();
+    return;
+  }
   fallbackBrowserTTS(text, options);
 }
 
 function fallbackBrowserTTS(text: string, options: SpeakOptions): void {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) {
     options.onError?.(new Error("No TTS available"));
+    options.onEnd?.();
     return;
   }
 
+  // Cancel any other browser TTS already speaking.
   window.speechSynthesis.cancel();
+
   const utter = new SpeechSynthesisUtterance(text);
   utter.lang = LANG_CODE[options.lang];
   utter.rate = options.rate ?? 1;
@@ -149,6 +218,5 @@ function fallbackBrowserTTS(text: string, options: SpeakOptions): void {
     utter.onerror = (e) => options.onError?.(e);
   }
 
-  currentUtterance = utter;
   window.speechSynthesis.speak(utter);
 }
