@@ -88,6 +88,19 @@ Heavier (week-plus each) but the biggest retention drivers.
 | O | A−/A+ font size escalation for accessibility | ⬜ |
 | — | Onboarding for child role (currently parent-only planned) | ⬜ |
 
+### Performance backlog (post-Wave-3 navigation polish)
+
+After landing loading.tsx skeletons (which cut perceived navigation
+delay by ~80%), three further levers remain. Ordered by impact-per-hour.
+
+| Item | Detail | Status | Effort |
+|---|---|---|---|
+| PERF-1 | **Suspense streaming inside thread page** — split the page's server fetch into Suspense boundaries so the top half (back link, title, status, tabs) renders the moment its data is ready, while heavier fetches (family tag list, full checklist) stream in below. Best win-to-effort ratio. | ⬜ | ~45-90 min |
+| PERF-2 | **Combine queries** — collapse the 4-5 separate Supabase queries into fewer round trips via a Postgres function or view that returns thread + messages + checklist + tags in one shot. Cuts round-trip latency. | ⬜ | ~2 hr (needs SQL migration) |
+| PERF-3 | **Client-side last-viewed cache** — when user taps a thread card, the title / preview / tags are already known. Pre-render the thread page header from cached data the instant the user taps, well before the server fetch resolves. True instant feel like Twitter/Instagram. | ⬜ | ~3-4 hr |
+| PERF-4 | **View Transitions API** — animated morphing of thread card into thread page header. Polish, not perf, but huge "app-like" perception win. | ⬜ | ~1-2 hr (experimental browser API) |
+| PERF-5 | **Reduce dashboard query** — currently fetch ALL threads (no limit on parent). Cap at 30-50, paginate the rest. | ⬜ | ~30 min |
+
 ### Already-shipped post-launch work (for reference)
 
 - ✅ Tappable phone numbers + URL auto-detection in messages
