@@ -8,6 +8,10 @@ import { fetchLatestMessagePerThread } from "@/lib/thread-previews";
 
 export const dynamic = "force-dynamic";
 
+// PERF-5: cap visible threads per tab. Counts are queried separately so
+// the pill stays accurate even when the family has more than 50 archived.
+const DASHBOARD_LIMIT = 50;
+
 export default async function ChildHome({
   searchParams,
 }: {
@@ -24,43 +28,66 @@ export default async function ChildHome({
     .select("display_name, family_space_id")
     .eq("id", user.id)
     .maybeSingle();
+  if (!profile?.family_space_id) return null;
 
-  const { data: family } = profile?.family_space_id
-    ? await supabase
+  const activeStatus: "open" | "done" =
+    searchParams.status === "done" ? "done" : "open";
+
+  const [familyResult, visibleThreadsResult, openCountResult, doneCountResult] =
+    await Promise.all([
+      supabase
         .from("family_spaces")
         .select("invite_code, name")
         .eq("id", profile.family_space_id)
-        .maybeSingle()
-    : { data: null };
-
-  const { data: allThreads } = profile?.family_space_id
-    ? await supabase
+        .maybeSingle(),
+      activeStatus === "done"
+        ? supabase
+            .from("threads")
+            .select(
+              "id, title_vi, title_en, tags, status, updated_at, initiated_by_role",
+            )
+            .eq("family_space_id", profile.family_space_id)
+            .eq("status", "resolved")
+            .order("updated_at", { ascending: false })
+            .limit(DASHBOARD_LIMIT)
+        : supabase
+            .from("threads")
+            .select(
+              "id, title_vi, title_en, tags, status, updated_at, initiated_by_role",
+            )
+            .eq("family_space_id", profile.family_space_id)
+            .neq("status", "resolved")
+            .order("updated_at", { ascending: false })
+            .limit(DASHBOARD_LIMIT),
+      supabase
         .from("threads")
-        .select(
-          "id, title_vi, title_en, tags, status, updated_at, initiated_by_role",
-        )
+        .select("*", { count: "exact", head: true })
         .eq("family_space_id", profile.family_space_id)
-        .order("updated_at", { ascending: false })
-    : { data: [] };
+        .neq("status", "resolved"),
+      supabase
+        .from("threads")
+        .select("*", { count: "exact", head: true })
+        .eq("family_space_id", profile.family_space_id)
+        .eq("status", "resolved"),
+    ]);
 
-  const all = (allThreads ?? []) as ThreadSummary[];
-  const openThreads = all.filter((t) => t.status !== "resolved");
-  const doneThreads = all.filter((t) => t.status === "resolved");
-  const activeStatus: "open" | "done" =
-    searchParams.status === "done" ? "done" : "open";
-  const visibleThreads = activeStatus === "done" ? doneThreads : openThreads;
+  const visibleThreads = (visibleThreadsResult.data ?? []) as ThreadSummary[];
+  const openCount = openCountResult.count ?? 0;
+  const doneCount = doneCountResult.count ?? 0;
+  const family = familyResult.data;
 
   const latestByThread = await fetchLatestMessagePerThread(
     supabase,
     visibleThreads.map((t) => t.id),
   );
 
-  const displayName = profile?.display_name ?? "there";
+  const displayName = profile.display_name ?? "there";
+  const totalThreads = openCount + doneCount;
 
   return (
     <RealtimeBoundary
       tables={["threads", "messages", "checklist_items"]}
-      channelName={`child-home-${profile?.family_space_id ?? "none"}`}
+      channelName={`child-home-${profile.family_space_id}`}
     >
       <main className="mx-auto max-w-2xl px-6 py-10 space-y-8">
         <header className="flex items-start justify-between gap-4">
@@ -91,7 +118,7 @@ export default async function ChildHome({
           </div>
         </header>
 
-        {all.length === 0 ? (
+        {totalThreads === 0 ? (
           <section className="rounded-card border border-line bg-white p-8 text-center space-y-2">
             <p className="text-muted">No activity yet.</p>
             <p className="text-sm text-muted/80">
@@ -109,8 +136,8 @@ export default async function ChildHome({
                 basePath="/child"
                 active={activeStatus}
                 language="en"
-                openCount={openThreads.length}
-                doneCount={doneThreads.length}
+                openCount={openCount}
+                doneCount={doneCount}
               />
             </div>
             {visibleThreads.length > 0 ? (

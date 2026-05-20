@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
@@ -14,6 +15,7 @@ import {
   setThreadStatus,
   setThreadTags,
 } from "@/app/(app)/child/thread/[id]/actions";
+import type { Language } from "@/lib/language-detect";
 
 export const dynamic = "force-dynamic";
 
@@ -22,16 +24,32 @@ const T = {
     back: "Trang chủ",
     markResolved: "Đánh dấu đã xong",
     resolved: "✓ Đã xong",
-    noActions: "Chưa có việc cần làm. Khi Noi đề xuất các bước cần làm, chúng sẽ xuất hiện ở đây.",
+    noActions:
+      "Chưa có việc cần làm. Khi Noi đề xuất các bước cần làm, chúng sẽ xuất hiện ở đây.",
   },
   en: {
     back: "Home",
     markResolved: "Mark resolved",
     resolved: "✓ Done",
-    noActions: "No action items yet. Items appear here when Noi suggests things to do.",
+    noActions:
+      "No action items yet. Items appear here when Noi suggests things to do.",
   },
 } as const;
 
+/**
+ * Parent thread page — restructured (PERF-1) to render in shells via
+ * Suspense streaming. The critical-path top-level fetch is just
+ *   auth + profile + thread existence
+ * which is fast (~50-100ms). The rest streams in below:
+ *   - Tabs + counts (own messages/checklist count queries)
+ *   - Tags row (slow listFamilyTags scan)
+ *   - Message bubbles (own messages query)
+ *   - Checklist (own checklist query, only on Actions tab)
+ *
+ * Result: the header (title, status, back link) is interactive within
+ * ~100ms of navigation; the rest pops in section-by-section as each
+ * query resolves. No more "all-or-nothing" wait.
+ */
 export default async function ParentThreadPage({
   params,
   searchParams,
@@ -51,36 +69,21 @@ export default async function ParentThreadPage({
     .eq("id", user.id)
     .maybeSingle();
   if (!profile?.family_space_id) return null;
-  const language = (profile.language_preference ?? "vi") as "vi" | "en";
+
+  const language = (profile.language_preference ?? "vi") as Language;
   const t = T[language];
   const autoRead = profile.auto_read_responses ?? false;
 
-  const [{ data: thread }, { data: messages }, { data: checklist }, familyTags] =
-    await Promise.all([
-      supabase
-        .from("threads")
-        .select("id, title_vi, title_en, tags, status")
-        .eq("id", params.id)
-        .maybeSingle(),
-      supabase
-        .from("messages")
-        .select("id, sender_role, content_vi, content_en, message_type, attachments, created_at")
-        .eq("thread_id", params.id)
-        .order("created_at", { ascending: true }),
-      supabase
-        .from("checklist_items")
-        .select("id, text_vi, text_en, is_completed, sort_order")
-        .eq("thread_id", params.id)
-        .order("sort_order", { ascending: true }),
-      listFamilyTags(supabase, profile.family_space_id),
-    ]);
-
+  // Critical-path thread fetch — needed for the header and 404 check.
+  const { data: thread } = await supabase
+    .from("threads")
+    .select("id, title_vi, title_en, tags, status")
+    .eq("id", params.id)
+    .maybeSingle();
   if (!thread) notFound();
 
   const title = language === "vi" ? thread.title_vi : thread.title_en;
   const tab = searchParams.tab === "actions" ? "actions" : "chat";
-  const messageList = messages ?? [];
-  const checklistList = (checklist ?? []) as ChecklistRow[];
 
   return (
     <RealtimeBoundary
@@ -101,7 +104,11 @@ export default async function ParentThreadPage({
               strokeWidth={2}
               className="h-4 w-4"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
             {t.back}
           </Link>
@@ -111,8 +118,6 @@ export default async function ParentThreadPage({
                 <h1 className="text-xl font-medium leading-snug">{title}</h1>
               )}
             </div>
-            {/* Parent now also has a mark-resolved affordance — both roles
-                can close out a thread when it's no longer active. */}
             <form action={setThreadStatus}>
               <input type="hidden" name="threadId" value={thread.id} />
               <input
@@ -131,46 +136,34 @@ export default async function ParentThreadPage({
               </button>
             </form>
           </div>
-          <TagSelector
-            threadId={thread.id}
-            tags={(thread.tags as string[]) ?? []}
-            familyTags={familyTags}
-            language={language}
-            onSetTags={setThreadTags}
-          />
+          <Suspense fallback={<TagBarSkeleton />}>
+            <FamilyTagBar
+              threadId={thread.id}
+              familySpaceId={profile.family_space_id}
+              currentTags={(thread.tags as string[]) ?? []}
+              language={language}
+            />
+          </Suspense>
         </header>
 
-        <ThreadTabs
-          threadId={thread.id}
-          basePath="/parent/thread"
-          active={tab}
-          language={language}
-          actionCount={checklistList.length}
-          messageCount={messageList.length}
-        />
+        <Suspense fallback={<TabsSkeleton />}>
+          <ThreadTabsWithCounts
+            threadId={thread.id}
+            basePath="/parent/thread"
+            active={tab}
+            language={language}
+          />
+        </Suspense>
 
         {tab === "chat" ? (
           <>
-            <section className="space-y-5">
-              {withDayDividers(messageList).map((item) =>
-                item.type === "divider" ? (
-                  <DayDivider
-                    key={`div-${item.iso}`}
-                    iso={item.iso}
-                    language={language}
-                  />
-                ) : (
-                  <MessageBubble
-                    key={item.message.id}
-                    message={item.message as MessageRow}
-                    viewerLanguage={language}
-                    allowToggle
-                    showTTS
-                    autoRead={autoRead}
-                  />
-                ),
-              )}
-            </section>
+            <Suspense fallback={<MessagesSkeleton />}>
+              <MessagesSection
+                threadId={thread.id}
+                language={language}
+                autoRead={autoRead}
+              />
+            </Suspense>
             <FollowUpInput
               threadId={thread.id}
               language={language}
@@ -178,21 +171,202 @@ export default async function ParentThreadPage({
             />
           </>
         ) : (
-          <section className="space-y-3">
-            {checklistList.length > 0 ? (
-              <ChecklistPanel
-                items={checklistList}
-                language={language}
-                currentUserId={user.id}
-              />
-            ) : (
-              <div className="rounded-card border border-line bg-white p-8 text-center text-sm text-muted">
-                {t.noActions}
-              </div>
-            )}
-          </section>
+          <Suspense fallback={<ChecklistSkeleton />}>
+            <ChecklistSection
+              threadId={thread.id}
+              language={language}
+              currentUserId={user.id}
+              emptyLabel={t.noActions}
+            />
+          </Suspense>
         )}
       </main>
     </RealtimeBoundary>
+  );
+}
+
+// ---- Streamed async sub-sections ------------------------------------
+
+async function FamilyTagBar({
+  threadId,
+  familySpaceId,
+  currentTags,
+  language,
+}: {
+  threadId: string;
+  familySpaceId: string;
+  currentTags: string[];
+  language: Language;
+}) {
+  const supabase = createServerClient();
+  const familyTags = await listFamilyTags(supabase, familySpaceId);
+  return (
+    <TagSelector
+      threadId={threadId}
+      tags={currentTags}
+      familyTags={familyTags}
+      language={language}
+      onSetTags={setThreadTags}
+    />
+  );
+}
+
+async function ThreadTabsWithCounts({
+  threadId,
+  basePath,
+  active,
+  language,
+}: {
+  threadId: string;
+  basePath: "/parent/thread" | "/child/thread";
+  active: "chat" | "actions";
+  language: Language;
+}) {
+  const supabase = createServerClient();
+  const [messagesCount, checklistCount] = await Promise.all([
+    supabase
+      .from("messages")
+      .select("*", { count: "exact", head: true })
+      .eq("thread_id", threadId),
+    supabase
+      .from("checklist_items")
+      .select("*", { count: "exact", head: true })
+      .eq("thread_id", threadId),
+  ]);
+  return (
+    <ThreadTabs
+      threadId={threadId}
+      basePath={basePath}
+      active={active}
+      language={language}
+      actionCount={checklistCount.count ?? 0}
+      messageCount={messagesCount.count ?? 0}
+    />
+  );
+}
+
+async function MessagesSection({
+  threadId,
+  language,
+  autoRead,
+}: {
+  threadId: string;
+  language: Language;
+  autoRead: boolean;
+}) {
+  const supabase = createServerClient();
+  const { data: messages } = await supabase
+    .from("messages")
+    .select(
+      "id, sender_role, content_vi, content_en, message_type, attachments, created_at",
+    )
+    .eq("thread_id", threadId)
+    .order("created_at", { ascending: true });
+  const list = messages ?? [];
+
+  return (
+    <section className="space-y-5">
+      {withDayDividers(list).map((item) =>
+        item.type === "divider" ? (
+          <DayDivider
+            key={`div-${item.iso}`}
+            iso={item.iso}
+            language={language}
+          />
+        ) : (
+          <MessageBubble
+            key={item.message.id}
+            message={item.message as MessageRow}
+            viewerLanguage={language}
+            allowToggle
+            showTTS
+            autoRead={autoRead}
+          />
+        ),
+      )}
+    </section>
+  );
+}
+
+async function ChecklistSection({
+  threadId,
+  language,
+  currentUserId,
+  emptyLabel,
+}: {
+  threadId: string;
+  language: Language;
+  currentUserId: string;
+  emptyLabel: string;
+}) {
+  const supabase = createServerClient();
+  const { data: checklist } = await supabase
+    .from("checklist_items")
+    .select("id, text_vi, text_en, is_completed, sort_order")
+    .eq("thread_id", threadId)
+    .order("sort_order", { ascending: true });
+  const list = (checklist ?? []) as ChecklistRow[];
+
+  if (list.length === 0) {
+    return (
+      <section className="space-y-3">
+        <div className="rounded-card border border-line bg-white p-8 text-center text-sm text-muted">
+          {emptyLabel}
+        </div>
+      </section>
+    );
+  }
+  return (
+    <section className="space-y-3">
+      <ChecklistPanel
+        items={list}
+        language={language}
+        currentUserId={currentUserId}
+      />
+    </section>
+  );
+}
+
+// ---- Local skeletons ---------------------------------------------
+
+function TagBarSkeleton() {
+  return (
+    <div className="flex items-center gap-2 animate-pulse">
+      <div className="h-3 w-10 rounded bg-line/40" />
+      <div className="h-5 w-14 rounded-full bg-line/50" />
+      <div className="h-5 w-16 rounded-full bg-line/50" />
+      <div className="h-5 w-20 rounded-full bg-line/40 border border-dashed border-line" />
+    </div>
+  );
+}
+
+function TabsSkeleton() {
+  return (
+    <div className="h-10 rounded-card border border-line bg-line/30 animate-pulse" />
+  );
+}
+
+function MessagesSkeleton() {
+  return (
+    <section className="space-y-5 animate-pulse">
+      <div className="ml-6 space-y-1">
+        <div className="h-3 w-12 rounded bg-line/40" />
+        <div className="rounded-bubble bg-accent/10 p-4 h-12" />
+      </div>
+      <div className="space-y-1">
+        <div className="h-3 w-12 rounded bg-line/40" />
+        <div className="rounded-bubble border border-line bg-white p-4 h-32" />
+      </div>
+    </section>
+  );
+}
+
+function ChecklistSkeleton() {
+  return (
+    <section className="space-y-2 animate-pulse">
+      <div className="h-14 rounded-card border border-line bg-white" />
+      <div className="h-14 rounded-card border border-line bg-white" />
+      <div className="h-14 rounded-card border border-line bg-white" />
+    </section>
   );
 }
