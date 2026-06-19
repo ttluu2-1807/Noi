@@ -33,6 +33,8 @@ interface ThreadCardProps {
   highlight?: boolean;
   /** Optional last-message preview. */
   latestMessage?: LatestMessageSummary | null;
+  /** When true, shows a small unread dot next to the title. */
+  unread?: boolean;
 }
 
 const ROLE_PREFIX: Record<Language, Record<NonNullable<LatestMessageSummary["sender_role"]>, string>> = {
@@ -58,6 +60,7 @@ export function ThreadCard({
   basePath,
   highlight,
   latestMessage,
+  unread,
 }: ThreadCardProps) {
   const primary =
     (language === "vi" ? thread.title_vi : thread.title_en) ??
@@ -91,8 +94,14 @@ export function ThreadCard({
       <div className="space-y-2">
         {/* Title + status row */}
         <div className="flex items-start justify-between gap-3">
-          <h3 className="font-medium text-ink truncate flex-1 min-w-0">
-            {primary}
+          <h3 className="font-medium text-ink truncate flex-1 min-w-0 flex items-center gap-2">
+            {unread && (
+              <span
+                aria-label="Unread"
+                className="inline-block h-2 w-2 shrink-0 rounded-full bg-accent animate-pop-in"
+              />
+            )}
+            <span className="truncate">{primary}</span>
           </h3>
           <span
             className={`shrink-0 text-xs px-2 py-0.5 rounded-full ${

@@ -76,9 +76,31 @@ export default async function ChildHome({
   const doneCount = doneCountResult.count ?? 0;
   const family = familyResult.data;
 
-  const latestByThread = await fetchLatestMessagePerThread(
-    supabase,
-    visibleThreads.map((t) => t.id),
+  const [latestByThread, viewsResult] = await Promise.all([
+    fetchLatestMessagePerThread(supabase, visibleThreads.map((t) => t.id)),
+    visibleThreads.length > 0
+      ? supabase
+          .from("thread_views")
+          .select("thread_id, last_viewed_at")
+          .eq("user_id", user.id)
+          .in(
+            "thread_id",
+            visibleThreads.map((t) => t.id),
+          )
+      : Promise.resolve({ data: [] as { thread_id: string; last_viewed_at: string }[] }),
+  ]);
+
+  const lastViewedByThread = new Map<string, string>();
+  for (const row of viewsResult.data ?? []) {
+    lastViewedByThread.set(row.thread_id, row.last_viewed_at);
+  }
+  const unreadThreadIds = new Set<string>(
+    visibleThreads
+      .filter((t) => {
+        const last = lastViewedByThread.get(t.id);
+        return !last || t.updated_at > last;
+      })
+      .map((t) => t.id),
   );
 
   const displayName = profile.display_name ?? "there";
@@ -86,7 +108,7 @@ export default async function ChildHome({
 
   return (
     <RealtimeBoundary
-      tables={["threads", "messages", "checklist_items"]}
+      tables={["threads", "messages", "checklist_items", "thread_views"]}
       channelName={`child-home-${profile.family_space_id}`}
     >
       <main className="mx-auto max-w-2xl px-6 py-10 space-y-8">
@@ -149,6 +171,7 @@ export default async function ChildHome({
                       language="en"
                       basePath="/child/thread"
                       latestMessage={latestByThread[t.id]}
+                      unread={unreadThreadIds.has(t.id)}
                       highlight={t.status === "open"}
                     />
                   </li>

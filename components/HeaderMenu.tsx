@@ -21,6 +21,7 @@ const T = {
     familyCode: "Mã gia đình",
     copy: "Sao chép",
     copied: "Đã sao chép",
+    todos: "Việc cần làm",
   },
   en: {
     settings: "Settings",
@@ -28,6 +29,7 @@ const T = {
     familyCode: "Family code",
     copy: "Copy",
     copied: "Copied",
+    todos: "To-do list",
   },
 } as const;
 
@@ -125,6 +127,14 @@ export function HeaderMenu({ role, language, displayName, inviteCode }: HeaderMe
               </div>
             </div>
           )}
+
+          <Link
+            href="/todos"
+            onClick={() => setOpen(false)}
+            className="block px-4 py-3 text-sm hover:bg-bg active:bg-line transition-colors border-b border-line"
+          >
+            {t.todos}
+          </Link>
 
           <Link
             href="/settings"

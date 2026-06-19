@@ -6,7 +6,13 @@ import { createClient } from "@/lib/supabase/client";
 
 interface Options {
   /** Supabase tables to watch. Any change triggers router.refresh(). */
-  tables: Array<"messages" | "threads" | "checklist_items">;
+  tables: Array<
+    | "messages"
+    | "threads"
+    | "checklist_items"
+    | "family_todos"
+    | "thread_views"
+  >;
   /** Unique channel name — use thread id / family id to scope. */
   channelName: string;
   /** Optional filter string, e.g. `thread_id=eq.<id>`. */

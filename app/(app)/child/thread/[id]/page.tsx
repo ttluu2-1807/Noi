@@ -5,6 +5,7 @@ import { createServerClient } from "@/lib/supabase/server";
 import { MessageBubble, type MessageRow } from "@/components/MessageBubble";
 import { ChecklistPanel, type ChecklistRow } from "@/components/ChecklistPanel";
 import { RealtimeBoundary } from "@/components/RealtimeBoundary";
+import { MarkAsViewed } from "@/components/MarkAsViewed";
 import { TagSelector } from "@/components/TagSelector";
 import { ThreadTabs } from "@/components/ThreadTabs";
 import { DayDivider, withDayDividers } from "@/components/DayDivider";
@@ -56,6 +57,7 @@ export default async function ChildThreadPage({
       channelName={`child-thread-${thread.id}`}
       filter={`thread_id=eq.${thread.id}`}
     >
+      <MarkAsViewed threadId={thread.id} />
       <main className="mx-auto max-w-2xl px-6 py-8 space-y-6">
         <header className="space-y-3">
           <Link

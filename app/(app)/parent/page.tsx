@@ -78,14 +78,40 @@ export default async function ParentPage({
   const doneCount = doneCountResult.count ?? 0;
   const family = familyResult.data;
 
-  const latestByThread = await fetchLatestMessagePerThread(
-    supabase,
-    visibleThreads.map((t) => t.id),
+  const [latestByThread, viewsResult] = await Promise.all([
+    fetchLatestMessagePerThread(supabase, visibleThreads.map((t) => t.id)),
+    // Wave 3 I: fetch the current user's last_viewed_at for the visible
+    // threads. We compute the unread set in JS — a thread is unread if
+    // its updated_at is newer than the user's recorded last_viewed_at,
+    // or if there's no view record at all.
+    visibleThreads.length > 0
+      ? supabase
+          .from("thread_views")
+          .select("thread_id, last_viewed_at")
+          .eq("user_id", user.id)
+          .in(
+            "thread_id",
+            visibleThreads.map((t) => t.id),
+          )
+      : Promise.resolve({ data: [] as { thread_id: string; last_viewed_at: string }[] }),
+  ]);
+
+  const lastViewedByThread = new Map<string, string>();
+  for (const row of viewsResult.data ?? []) {
+    lastViewedByThread.set(row.thread_id, row.last_viewed_at);
+  }
+  const unreadThreadIds = new Set<string>(
+    visibleThreads
+      .filter((t) => {
+        const last = lastViewedByThread.get(t.id);
+        return !last || t.updated_at > last;
+      })
+      .map((t) => t.id),
   );
 
   return (
     <RealtimeBoundary
-      tables={["threads", "messages"]}
+      tables={["threads", "messages", "thread_views"]}
       channelName={`parent-home-${profile?.family_space_id ?? "none"}`}
     >
       <ParentHome
@@ -94,6 +120,7 @@ export default async function ParentPage({
         }
         recentThreads={visibleThreads}
         latestMessages={latestByThread as Record<string, LatestMessageSummary>}
+        unreadThreadIds={unreadThreadIds}
         language={language}
         familySpaceId={profile!.family_space_id!}
         inviteCode={family?.invite_code ?? null}

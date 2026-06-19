@@ -4,7 +4,13 @@ import { useRealtimeRefresh } from "@/hooks/useRealtimeRefresh";
 
 interface RealtimeBoundaryProps {
   /** Supabase tables to watch. */
-  tables: Array<"messages" | "threads" | "checklist_items">;
+  tables: Array<
+    | "messages"
+    | "threads"
+    | "checklist_items"
+    | "family_todos"
+    | "thread_views"
+  >;
   /** Unique channel name — scope with family id or thread id. */
   channelName: string;
   /** Optional Supabase realtime filter, e.g. `thread_id=eq.<id>`. */
