@@ -73,9 +73,22 @@ Heavier (week-plus each) but the biggest retention drivers.
 
 | Item | Detail | Status |
 |---|---|---|
-| KILLER-1 | Reminders / nudges — parent commits to "call Centrelink Friday", app reminds them Friday morning. Needs scheduled jobs, push or email, calendar export. | ⬜ |
+| KILLER-1 | Reminders / nudges — parent commits to "call Centrelink Friday", app reminds them Friday morning. Needs scheduled jobs, push or email, calendar export. **Also covers the user's separate "reminders + push notifications for todo list and events" request.** | ⬜ |
 | KILLER-2 | Family member presence — "Mai is viewing this thread", "Mai is typing". Realtime broadcast over Supabase Presence channels. Strong family-warmth signal. | ⬜ |
 | KILLER-3 | Voice mode end-to-end for parent — instead of read-typed-text, AI speaks the response, parent can voice-reply. Needs server-side STT (Whisper) for reliable Vietnamese on iPhone, plus optional ElevenLabs TTS. | ⬜ |
+
+### Phase 3 — bigger family features (user backlog)
+
+New product surfaces beyond the current AI-Q&A model. Each is roughly
+a week of work. They share a theme: Noi as the family's shared memory,
+not just an answer engine.
+
+| # | Feature | Notes / open design questions |
+|---|---|---|
+| FAM-1 | **Family diary — log decisions and events** | A separate timeline from threads. Tap "+ Add entry", record what happened ("Mum changed GP today", "Bought new health insurance"). Dual-language by default. Each entry can attach photos, tag people, link to a relevant thread. Open Qs: do diary entries get their own dashboard tab, or live under a /diary route? Do we auto-suggest diary entries from resolved threads ("Save 'Renewed Medicare card' to the diary?")? Schema: new `diary_entries` table, family-scoped, with content_vi/en + attachments. |
+| FAM-2 | **Voice-driven shared to-do list** | A persistent family to-do list separate from per-thread checklists. Parent presses mic, says "Mua thuốc, đi khám bác sĩ thứ Sáu", Noi parses into individual items, both family members see + tick off. Different from existing checklists (which are AI-extracted per thread). Pairs with FAM-3 for reminders. Schema: new `family_todos` table with text + due_at + assignee + completed_by/at. Voice-parse uses Claude to split a free-form dictation into discrete tasks. |
+| FAM-3 | **Reminders + push notifications for todos and events** | See KILLER-1 — same infrastructure (scheduled jobs + push delivery). FAM-3 expands the surfaces to also remind for FAM-1 (events on a date) and FAM-2 (todos with due_at). Push: web push for browsers, optional iOS native app later. Phase-A could be email only (cheapest) before investing in push. |
+| FAM-4 | **Home dashboard insights and actions** | Replace today's empty/recent-threads dashboard with a richer at-a-glance home: "3 reminders due this week", "Mum hasn't asked anything in 5 days", "Most-used: Medicare", a "quick actions" row (renew Medicare, check Centrelink balance, etc. derived from family's history), and a streak / activity ribbon. The parent's version stays minimal; the child's version goes richer. Open Qs: how do we surface insights without feeling surveillance-y? Personalisation must feel warm, not creepy. |
 
 ### Smaller backlog (revisit when relevant)
 
