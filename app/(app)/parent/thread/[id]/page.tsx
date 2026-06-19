@@ -64,23 +64,29 @@ export default async function ParentThreadPage({
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("language_preference, family_space_id, auto_read_responses")
-    .eq("id", user.id)
-    .maybeSingle();
+  // Profile + thread don't depend on each other — run in parallel to
+  // shave ~50ms off the critical path on every thread navigation.
+  const [profileResult, threadResult] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("language_preference, family_space_id, auto_read_responses")
+      .eq("id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("threads")
+      .select("id, title_vi, title_en, tags, status")
+      .eq("id", params.id)
+      .maybeSingle(),
+  ]);
+
+  const profile = profileResult.data;
   if (!profile?.family_space_id) return null;
 
   const language = (profile.language_preference ?? "vi") as Language;
   const t = T[language];
   const autoRead = profile.auto_read_responses ?? false;
 
-  // Critical-path thread fetch — needed for the header and 404 check.
-  const { data: thread } = await supabase
-    .from("threads")
-    .select("id, title_vi, title_en, tags, status")
-    .eq("id", params.id)
-    .maybeSingle();
+  const thread = threadResult.data;
   if (!thread) notFound();
 
   const title = language === "vi" ? thread.title_vi : thread.title_en;

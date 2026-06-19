@@ -34,19 +34,26 @@ export default async function ChildThreadPage({
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("family_space_id, auto_read_responses")
-    .eq("id", user.id)
-    .maybeSingle();
+  // Profile + thread don't depend on each other — run in parallel to
+  // shave ~50ms off the critical path on every thread navigation.
+  const [profileResult, threadResult] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("family_space_id, auto_read_responses")
+      .eq("id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("threads")
+      .select("id, title_vi, title_en, tags, status, initiated_by_role")
+      .eq("id", params.id)
+      .maybeSingle(),
+  ]);
+
+  const profile = profileResult.data;
   if (!profile?.family_space_id) return null;
   const autoRead = profile.auto_read_responses ?? false;
 
-  const { data: thread } = await supabase
-    .from("threads")
-    .select("id, title_vi, title_en, tags, status, initiated_by_role")
-    .eq("id", params.id)
-    .maybeSingle();
+  const thread = threadResult.data;
   if (!thread) notFound();
 
   const tab = searchParams.tab === "actions" ? "actions" : "chat";

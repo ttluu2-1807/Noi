@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { createServerClient } from "@/lib/supabase/server";
 import { RealtimeBoundary } from "@/components/RealtimeBoundary";
@@ -22,10 +23,20 @@ const T = {
 } as const;
 
 /**
- * FAM-2 — the family-shared to-do list. Both roles see the same list.
- * Voice dictation at the top splits into discrete items via Claude;
- * tick-off / delete persist via Server Actions. Realtime keeps both
- * users in sync.
+ * FAM-2 — family-shared to-do list.
+ *
+ * Restructured with Suspense streaming (mirrors the thread-page pattern
+ * from PERF-1):
+ *
+ *   Critical path  → auth + profile + family record. Fast, gates rendering.
+ *   Header + composer render the moment that resolves (~150-250ms).
+ *
+ *   Suspense block → the todos list itself, which is the heaviest query.
+ *   Streams in below the composer when ready (~50-150ms after the header).
+ *
+ * Net effect: tap "To-do list" in the menu → loading.tsx skeleton flashes
+ * → header + composer render → todos pop in. Composer is interactive
+ * before the list arrives.
  */
 export default async function TodosPage() {
   const supabase = createServerClient();
@@ -43,22 +54,14 @@ export default async function TodosPage() {
   const language = (profile.language_preference ?? "vi") as Language;
   const t = T[language];
 
+  // Family invite code is tiny and shown in HeaderMenu — keep in critical
+  // path so the menu has it without a second flash. Cheap query.
   const { data: family } = await supabase
     .from("family_spaces")
     .select("invite_code")
     .eq("id", profile.family_space_id)
     .maybeSingle();
 
-  const { data: todos } = await supabase
-    .from("family_todos")
-    .select(
-      "id, text_vi, text_en, due_at, assignee_role, is_completed, completed_at, created_at",
-    )
-    .eq("family_space_id", profile.family_space_id)
-    .order("is_completed", { ascending: true })
-    .order("created_at", { ascending: false });
-
-  // Send the parent to the parent root, the child to the child root.
   const homeHref = profile.role === "parent" ? "/parent" : "/child";
 
   return (
@@ -101,8 +104,47 @@ export default async function TodosPage() {
 
         <TodoComposer language={language} />
 
-        <TodoList items={(todos ?? []) as TodoRow[]} language={language} />
+        <Suspense fallback={<TodoListSkeleton />}>
+          <TodoListSection
+            familySpaceId={profile.family_space_id}
+            language={language}
+          />
+        </Suspense>
       </main>
     </RealtimeBoundary>
+  );
+}
+
+/**
+ * Async sub-component streamed via the page's <Suspense>. Holds the
+ * actual family_todos query so it doesn't block the header + composer.
+ */
+async function TodoListSection({
+  familySpaceId,
+  language,
+}: {
+  familySpaceId: string;
+  language: Language;
+}) {
+  const supabase = createServerClient();
+  const { data: todos } = await supabase
+    .from("family_todos")
+    .select(
+      "id, text_vi, text_en, due_at, assignee_role, is_completed, completed_at, created_at",
+    )
+    .eq("family_space_id", familySpaceId)
+    .order("is_completed", { ascending: true })
+    .order("created_at", { ascending: false });
+  return <TodoList items={(todos ?? []) as TodoRow[]} language={language} />;
+}
+
+function TodoListSkeleton() {
+  return (
+    <section className="space-y-2 animate-pulse">
+      <div className="h-3 w-20 rounded bg-line/40" />
+      <div className="h-14 rounded-card border border-line bg-white" />
+      <div className="h-14 rounded-card border border-line bg-white" />
+      <div className="h-14 rounded-card border border-line bg-white" />
+    </section>
   );
 }
