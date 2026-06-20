@@ -152,12 +152,45 @@ export async function toggleTodo(formData: FormData): Promise<void> {
   revalidatePath("/todos");
 }
 
-export async function deleteTodo(formData: FormData): Promise<void> {
+/**
+ * Soft-delete a todo. Sets `deleted_at = now()`. The todos list query
+ * filters on `deleted_at is null` so it vanishes immediately; restorable
+ * within the 30-day window via the undo toast or /trash.
+ */
+export async function deleteTodo(
+  formData: FormData,
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const id = String(formData.get("id") ?? "");
-  if (!id) return;
+  if (!id) return { ok: false, error: "Missing id" };
 
   const supabase = createServerClient();
-  await supabase.from("family_todos").delete().eq("id", id);
+  const { error } = await supabase
+    .from("family_todos")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
 
   revalidatePath("/todos");
+  revalidatePath("/trash");
+  return { ok: true };
+}
+
+/**
+ * Restore a soft-deleted todo. Called by the undo toast and by /trash.
+ */
+export async function restoreTodo(
+  id: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!id) return { ok: false, error: "Missing id" };
+
+  const supabase = createServerClient();
+  const { error } = await supabase
+    .from("family_todos")
+    .update({ deleted_at: null })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/todos");
+  revalidatePath("/trash");
+  return { ok: true };
 }

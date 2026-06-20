@@ -74,7 +74,7 @@ export default async function ParentThreadPage({
       .maybeSingle(),
     supabase
       .from("threads")
-      .select("id, title_vi, title_en, tags, status")
+      .select("id, title_vi, title_en, tags, status, deleted_at")
       .eq("id", params.id)
       .maybeSingle(),
   ]);
@@ -87,7 +87,9 @@ export default async function ParentThreadPage({
   const autoRead = profile.auto_read_responses ?? false;
 
   const thread = threadResult.data;
-  if (!thread) notFound();
+  // Treat a soft-deleted thread the same as missing — the user can
+  // restore it from /trash if they want.
+  if (!thread || thread.deleted_at) notFound();
 
   const title = language === "vi" ? thread.title_vi : thread.title_en;
   const tab = searchParams.tab === "actions" ? "actions" : "chat";

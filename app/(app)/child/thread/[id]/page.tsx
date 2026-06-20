@@ -44,7 +44,7 @@ export default async function ChildThreadPage({
       .maybeSingle(),
     supabase
       .from("threads")
-      .select("id, title_vi, title_en, tags, status, initiated_by_role")
+      .select("id, title_vi, title_en, tags, status, initiated_by_role, deleted_at")
       .eq("id", params.id)
       .maybeSingle(),
   ]);
@@ -54,7 +54,8 @@ export default async function ChildThreadPage({
   const autoRead = profile.auto_read_responses ?? false;
 
   const thread = threadResult.data;
-  if (!thread) notFound();
+  // Treat a soft-deleted thread the same as missing.
+  if (!thread || thread.deleted_at) notFound();
 
   const tab = searchParams.tab === "actions" ? "actions" : "chat";
 

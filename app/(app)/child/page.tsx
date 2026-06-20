@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createServerClient } from "@/lib/supabase/server";
 import { ThreadCard, type ThreadSummary } from "@/components/ThreadCard";
+import { ThreadActionsMenu } from "@/components/ThreadActionsMenu";
 import { RealtimeBoundary } from "@/components/RealtimeBoundary";
 import { HeaderMenu } from "@/components/HeaderMenu";
 import { StatusTabs } from "@/components/StatusTabs";
@@ -48,6 +49,7 @@ export default async function ChildHome({
             )
             .eq("family_space_id", profile.family_space_id)
             .eq("status", "resolved")
+            .is("deleted_at", null)
             .order("updated_at", { ascending: false })
             .limit(DASHBOARD_LIMIT)
         : supabase
@@ -57,18 +59,21 @@ export default async function ChildHome({
             )
             .eq("family_space_id", profile.family_space_id)
             .neq("status", "resolved")
+            .is("deleted_at", null)
             .order("updated_at", { ascending: false })
             .limit(DASHBOARD_LIMIT),
       supabase
         .from("threads")
         .select("*", { count: "exact", head: true })
         .eq("family_space_id", profile.family_space_id)
-        .neq("status", "resolved"),
+        .neq("status", "resolved")
+        .is("deleted_at", null),
       supabase
         .from("threads")
         .select("*", { count: "exact", head: true })
         .eq("family_space_id", profile.family_space_id)
-        .eq("status", "resolved"),
+        .eq("status", "resolved")
+        .is("deleted_at", null),
     ]);
 
   const visibleThreads = (visibleThreadsResult.data ?? []) as ThreadSummary[];
@@ -173,6 +178,13 @@ export default async function ChildHome({
                       latestMessage={latestByThread[t.id]}
                       unread={unreadThreadIds.has(t.id)}
                       highlight={t.status === "open"}
+                      actions={
+                        <ThreadActionsMenu
+                          threadId={t.id}
+                          language="en"
+                          threadTitle={t.title_en ?? t.title_vi ?? ""}
+                        />
+                      }
                     />
                   </li>
                 ))}

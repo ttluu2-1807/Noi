@@ -22,6 +22,7 @@ const T = {
     copy: "Sao chép",
     copied: "Đã sao chép",
     todos: "Việc cần làm",
+    trash: "Thùng rác",
   },
   en: {
     settings: "Settings",
@@ -30,6 +31,7 @@ const T = {
     copy: "Copy",
     copied: "Copied",
     todos: "To-do list",
+    trash: "Trash",
   },
 } as const;
 
@@ -142,6 +144,14 @@ export function HeaderMenu({ role, language, displayName, inviteCode }: HeaderMe
             className="block px-4 py-3 text-sm hover:bg-bg active:bg-line transition-colors"
           >
             {t.settings}
+          </Link>
+
+          <Link
+            href="/trash"
+            onClick={() => setOpen(false)}
+            className="block px-4 py-3 text-sm text-muted hover:text-ink hover:bg-bg active:bg-line transition-colors border-t border-line"
+          >
+            {t.trash}
           </Link>
 
           <form action={signOut} className="border-t border-line">

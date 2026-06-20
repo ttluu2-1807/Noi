@@ -7,9 +7,17 @@ import { LoadingDots } from "@/components/LoadingDots";
 import { VoiceInput } from "@/components/VoiceInput";
 import {
   generateTaskPreview,
+  refineTaskPreview,
   submitTask,
   type TaskPreview,
 } from "./actions";
+
+const REFINE_CHIPS = [
+  { label: "Simpler", prompt: "Make it simpler and easier to follow." },
+  { label: "More detail", prompt: "Add more detail and concrete steps." },
+  { label: "More formal", prompt: "Use a more formal, respectful tone." },
+  { label: "Shorter", prompt: "Shorten this — keep only the essential steps." },
+];
 
 type Stage = "compose" | "preview" | "submitting";
 
@@ -20,6 +28,9 @@ export function NewTaskFlow() {
   const [preview, setPreview] = useState<TaskPreview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  // Refinement state — what the user is asking Claude to change on top
+  // of the existing preview. Cleared after a successful refine.
+  const [refineInput, setRefineInput] = useState("");
 
   const onPreview = () => {
     const trimmed = task.trim();
@@ -48,6 +59,38 @@ export function NewTaskFlow() {
         setStage("preview");
       }
     });
+  };
+
+  const onRefine = (instruction: string) => {
+    if (!preview) return;
+    const trimmed = instruction.trim();
+    if (!trimmed) return;
+    setError(null);
+    startTransition(async () => {
+      const result = await refineTaskPreview(preview, trimmed);
+      if (result.ok) {
+        setPreview(result.preview);
+        setRefineInput("");
+      } else {
+        setError(result.error);
+      }
+    });
+  };
+
+  /**
+   * Inline-edit helpers. We let the child tweak the Vietnamese task
+   * line and the Vietnamese response directly — sometimes a one-word
+   * adjustment is faster than asking Claude to rewrite.
+   *
+   * Editing the Vietnamese side invalidates the cached English
+   * translation; we leave the English as-is and trust that it'll be
+   * close enough for review purposes — the parent only sees the
+   * Vietnamese anyway. If the child wants a fresh English translation
+   * after manual edits, they can re-refine.
+   */
+  const onEditField = (field: "taskVi" | "responseVi", value: string) => {
+    if (!preview) return;
+    setPreview({ ...preview, [field]: value });
   };
 
   return (
@@ -118,23 +161,33 @@ export function NewTaskFlow() {
         <div className="space-y-5">
           <section className="rounded-card border border-line bg-white p-5 space-y-3">
             <div className="text-sm text-muted uppercase tracking-wide">
-              The task (in Vietnamese for your parent)
+              The task (in Vietnamese for your parent — edit if needed)
             </div>
-            <p className="whitespace-pre-wrap">{preview.taskVi}</p>
+            <textarea
+              value={preview.taskVi}
+              onChange={(e) => onEditField("taskVi", e.target.value)}
+              rows={2}
+              disabled={pending}
+              className="w-full rounded-card border border-line/60 bg-white px-3 py-2 leading-relaxed focus:border-accent focus:outline-none resize-none"
+            />
           </section>
 
           <section className="rounded-card border border-line bg-white p-5 space-y-3">
             <div className="text-sm text-muted uppercase tracking-wide">
-              Steps Noi will show them
+              Steps Noi will show them — edit if needed
             </div>
-            <div className="whitespace-pre-wrap leading-relaxed">
-              {preview.responseVi}
-            </div>
+            <textarea
+              value={preview.responseVi}
+              onChange={(e) => onEditField("responseVi", e.target.value)}
+              rows={Math.min(14, Math.max(6, preview.responseVi.split("\n").length + 1))}
+              disabled={pending}
+              className="w-full rounded-card border border-line/60 bg-white px-3 py-2 leading-relaxed focus:border-accent focus:outline-none resize-none"
+            />
             <details className="text-sm">
               <summary className="cursor-pointer text-muted hover:text-ink">
                 See in English
               </summary>
-              <div className="mt-3 whitespace-pre-wrap leading-relaxed border-t border-line pt-3">
+              <div className="mt-3 whitespace-pre-wrap leading-relaxed border-t border-line pt-3 text-muted">
                 {preview.responseEn}
               </div>
             </details>
@@ -156,6 +209,58 @@ export function NewTaskFlow() {
             </section>
           )}
 
+          {/* Refinement panel — chips for common asks + free-form input.
+              Calls refineTaskPreview which re-runs Claude with the
+              current preview as context plus the refinement instruction. */}
+          <section className="rounded-card border border-dashed border-line bg-bg/50 p-5 space-y-3">
+            <div className="text-sm text-muted uppercase tracking-wide">
+              Refine with Noi
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {REFINE_CHIPS.map((chip) => (
+                <button
+                  key={chip.label}
+                  type="button"
+                  onClick={() => onRefine(chip.prompt)}
+                  disabled={pending}
+                  className="rounded-full border border-line bg-white px-3 py-1 text-xs text-ink hover:border-accent/40 disabled:opacity-40 transition-transform active:scale-95"
+                >
+                  {chip.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <input
+                type="text"
+                value={refineInput}
+                onChange={(e) => setRefineInput(e.target.value)}
+                placeholder="Or type your own ask, e.g. 'add a step about bringing ID'"
+                disabled={pending}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && refineInput.trim()) {
+                    e.preventDefault();
+                    onRefine(refineInput);
+                  }
+                }}
+                className="flex-1 rounded-card border border-line bg-white px-3 py-2 text-sm focus:border-accent focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => onRefine(refineInput)}
+                disabled={pending || !refineInput.trim()}
+                className="rounded-card bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-40 hover:opacity-90 transition-transform active:scale-[0.98]"
+              >
+                Refine
+              </button>
+            </div>
+            {pending && (
+              <div className="flex items-center gap-2 text-xs text-muted">
+                <LoadingDots />
+                Refining…
+              </div>
+            )}
+          </section>
+
           {error && (
             <p className="text-sm text-red-600" role="alert">
               {error}
@@ -175,7 +280,7 @@ export function NewTaskFlow() {
               type="button"
               onClick={onSubmit}
               disabled={pending}
-              className="rounded-card bg-accent px-5 py-3 font-medium text-white disabled:opacity-40 hover:opacity-90 transition-opacity"
+              className="rounded-card bg-accent px-5 py-3 font-medium text-white disabled:opacity-40 hover:opacity-90 transition-transform active:scale-[0.98]"
             >
               {pending ? "Sending…" : "Send to parent"}
             </button>

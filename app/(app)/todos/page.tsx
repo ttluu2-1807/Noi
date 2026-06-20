@@ -133,6 +133,7 @@ async function TodoListSection({
       "id, text_vi, text_en, due_at, assignee_role, is_completed, completed_at, created_at",
     )
     .eq("family_space_id", familySpaceId)
+    .is("deleted_at", null)
     .order("is_completed", { ascending: true })
     .order("created_at", { ascending: false });
   return <TodoList items={(todos ?? []) as TodoRow[]} language={language} />;

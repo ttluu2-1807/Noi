@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { VoiceInput } from "@/components/VoiceInput";
 import { StreamingResponse } from "@/components/StreamingResponse";
 import { ThreadCard, type ThreadSummary, type LatestMessageSummary } from "@/components/ThreadCard";
+import { ThreadActionsMenu } from "@/components/ThreadActionsMenu";
 import { AttachmentPicker } from "@/components/AttachmentPicker";
 import { HeaderMenu } from "@/components/HeaderMenu";
 import { StatusTabs } from "@/components/StatusTabs";
@@ -222,6 +223,15 @@ export function ParentHome({
                     highlight={
                       thread.initiated_by_role === "child" &&
                       thread.status === "open"
+                    }
+                    actions={
+                      <ThreadActionsMenu
+                        threadId={thread.id}
+                        language={language}
+                        threadTitle={
+                          (language === "vi" ? thread.title_vi : thread.title_en) ?? ""
+                        }
+                      />
                     }
                   />
                 </li>

@@ -35,6 +35,12 @@ interface ThreadCardProps {
   latestMessage?: LatestMessageSummary | null;
   /** When true, shows a small unread dot next to the title. */
   unread?: boolean;
+  /**
+   * Optional slot for an in-corner action menu (e.g. three-dot →
+   * Delete). Positioned absolutely top-right; click handling is the
+   * caller's responsibility (stop propagation so the Link doesn't fire).
+   */
+  actions?: React.ReactNode;
 }
 
 const ROLE_PREFIX: Record<Language, Record<NonNullable<LatestMessageSummary["sender_role"]>, string>> = {
@@ -61,6 +67,7 @@ export function ThreadCard({
   highlight,
   latestMessage,
   unread,
+  actions,
 }: ThreadCardProps) {
   const primary =
     (language === "vi" ? thread.title_vi : thread.title_en) ??
@@ -83,13 +90,14 @@ export function ThreadCard({
   const status = thread.status === "resolved" ? "resolved" : "open";
 
   return (
+    <div className="relative">
     <Link
       href={`${basePath}/${thread.id}`}
       className={`group block rounded-card border bg-white px-5 py-4 transition-all hover:border-accent/40 hover:shadow-sm active:scale-[0.995] animate-fade-rise ${
         highlight && status === "open"
           ? "border-l-4 border-l-accent border-line"
           : "border-line"
-      }`}
+      } ${actions ? "pr-12" : ""}`}
     >
       <div className="space-y-2">
         {/* Title + status row */}
@@ -167,5 +175,9 @@ export function ThreadCard({
         </div>
       </div>
     </Link>
+    {actions && (
+      <div className="absolute top-3 right-3">{actions}</div>
+    )}
+    </div>
   );
 }

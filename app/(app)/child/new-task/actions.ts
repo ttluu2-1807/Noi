@@ -72,6 +72,78 @@ export async function generateTaskPreview(
 }
 
 /**
+ * Iterative-refinement step — between "Preview" and "Send to parent",
+ * the child can refine the AI output. Either tap one of the chip
+ * presets ("Simpler", "More detail", "Add a step about X") or type a
+ * free-form instruction ("Use a warmer tone").
+ *
+ * Implementation: re-runs Claude with the current Vietnamese task as the
+ * user message AND the refinement instruction as an additional shaping
+ * note, then refreshes the cached English translation + checklist. The
+ * task itself isn't modified by refine — only the steps. If the user
+ * wants to change the task wording, they can edit it inline.
+ */
+export async function refineTaskPreview(
+  currentPreview: TaskPreview,
+  instruction: string,
+): Promise<{ ok: true; preview: TaskPreview } | { ok: false; error: string }> {
+  const refine = instruction.trim();
+  if (!refine) return { ok: false, error: "No refinement instruction" };
+
+  try {
+    // Augment the system prompt with the refinement instruction. Keep
+    // the existing NOI_SYSTEM_PROMPT so the elder-Vietnamese register
+    // and formatting expectations stay in force; the refinement note
+    // tweaks the response style on top.
+    const completion = await anthropic.messages.create({
+      model: MODEL,
+      max_tokens: 1500,
+      system:
+        NOI_SYSTEM_PROMPT +
+        "\n\n[Refinement instruction from family member: " +
+        refine +
+        " — apply this to your response while keeping the same overall structure.]",
+      messages: [
+        { role: "user", content: currentPreview.taskVi },
+        { role: "assistant", content: currentPreview.responseVi },
+        {
+          role: "user",
+          content:
+            "Please regenerate your response above with the refinement applied. Keep numbered steps and any '- [ ]' checklist lines.",
+        },
+      ],
+    });
+    const block = completion.content[0];
+    if (block?.type !== "text") {
+      return { ok: false, error: "Unexpected response from AI" };
+    }
+    const responseVi = block.text;
+
+    const [responseEn, checklist] = await Promise.all([
+      translate(responseVi, "vi", "en"),
+      extractChecklist(responseVi),
+    ]);
+
+    return {
+      ok: true,
+      preview: {
+        taskVi: currentPreview.taskVi,
+        taskEn: currentPreview.taskEn,
+        responseVi,
+        responseEn,
+        checklist,
+      },
+    };
+  } catch (err) {
+    console.error("[new-task refine]", err);
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Could not refine preview",
+    };
+  }
+}
+
+/**
  * Step 2 of the new-task flow. After the child reviews the preview,
  * they hit Send and we persist:
  *   - a new thread (initiated_by_role='child')

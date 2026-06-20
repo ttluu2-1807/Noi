@@ -159,3 +159,48 @@ export async function setThreadStatus(formData: FormData): Promise<void> {
 
   revalidatePath(`/child/thread/${threadId}`);
 }
+
+/**
+ * Soft-delete a thread. Sets `deleted_at = now()`. Dashboard queries
+ * filter on `deleted_at is null` so the thread vanishes immediately.
+ * Items linger in the trash for 30 days (cleanup job for that lives
+ * elsewhere — for now just nothing automatic, restorable via /trash).
+ *
+ * Returns the threadId on success so the caller can show an undo
+ * affordance ("Undo" → calls restoreThread).
+ */
+export async function softDeleteThread(
+  threadId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!threadId) return { ok: false, error: "Missing thread id" };
+  const supabase = createServerClient();
+  const { error } = await supabase
+    .from("threads")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", threadId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/parent");
+  revalidatePath("/child");
+  revalidatePath("/trash");
+  return { ok: true };
+}
+
+/**
+ * Restore a soft-deleted thread back to the active list. Called by
+ * the undo toast and by /trash. Sets `deleted_at = null`.
+ */
+export async function restoreThread(
+  threadId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!threadId) return { ok: false, error: "Missing thread id" };
+  const supabase = createServerClient();
+  const { error } = await supabase
+    .from("threads")
+    .update({ deleted_at: null })
+    .eq("id", threadId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/parent");
+  revalidatePath("/child");
+  revalidatePath("/trash");
+  return { ok: true };
+}

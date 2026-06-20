@@ -43,7 +43,8 @@ export async function listFamilyTags(
   const { data } = await supabase
     .from("threads")
     .select("tags")
-    .eq("family_space_id", familySpaceId);
+    .eq("family_space_id", familySpaceId)
+    .is("deleted_at", null);
   if (!data) return [];
   const set = new Set<string>();
   for (const row of data) {

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { toggleTodo, deleteTodo } from "./actions";
+import { toggleTodo, deleteTodo, restoreTodo } from "./actions";
+import { Toast } from "@/components/Toast";
 import { relativeTime } from "@/lib/relative-time";
 import type { Language } from "@/lib/language-detect";
 
@@ -31,7 +32,8 @@ const T = {
     any: "",
     due: "Hạn:",
     delete: "Xoá",
-    confirmDelete: "Xoá việc này?",
+    deleted: "Đã xoá",
+    undo: "Hoàn tác",
   },
   en: {
     open: "Open",
@@ -42,7 +44,8 @@ const T = {
     any: "",
     due: "Due:",
     delete: "Delete",
-    confirmDelete: "Delete this task?",
+    deleted: "Deleted",
+    undo: "Undo",
   },
 } as const;
 
@@ -59,6 +62,12 @@ export function TodoList({ items, language }: TodoListProps) {
   const [rows, setRows] = useState(items);
   const [, startTransition] = useTransition();
   const [showDone, setShowDone] = useState(true);
+  // Track the most-recently deleted item so the undo toast can restore
+  // it. Bumped key forces a fresh Toast mount when multiple deletes
+  // happen in quick succession.
+  const [undoState, setUndoState] = useState<
+    { id: string; label: string; key: number } | null
+  >(null);
 
   const open = rows.filter((r) => !r.is_completed);
   const done = rows.filter((r) => r.is_completed);
@@ -75,8 +84,14 @@ export function TodoList({ items, language }: TodoListProps) {
   };
 
   const onDelete = (id: string) => {
-    if (!confirm(t.confirmDelete)) return;
+    const row = rows.find((r) => r.id === id);
+    if (!row) return;
+    const label = language === "vi" ? row.text_vi : row.text_en;
+
+    // Optimistic remove + queue an undo toast.
     setRows((prev) => prev.filter((r) => r.id !== id));
+    setUndoState({ id, label, key: (undoState?.key ?? 0) + 1 });
+
     startTransition(async () => {
       const fd = new FormData();
       fd.set("id", id);
@@ -84,11 +99,38 @@ export function TodoList({ items, language }: TodoListProps) {
     });
   };
 
+  const onUndoDelete = () => {
+    if (!undoState) return;
+    const idToRestore = undoState.id;
+    setUndoState(null);
+    startTransition(async () => {
+      const r = await restoreTodo(idToRestore);
+      // No optimistic add-back — the realtime refresh in the parent
+      // page will surface the restored row on the next render.
+      if (!r.ok) return;
+    });
+  };
+
+  // Render the toast regardless of whether the list is empty — a user
+  // might delete their last item.
+  const undoToast = undoState ? (
+    <Toast
+      key={undoState.key}
+      message={`${t.deleted}: ${undoState.label}`}
+      actionLabel={t.undo}
+      onAction={onUndoDelete}
+      onDismiss={() => setUndoState(null)}
+    />
+  ) : null;
+
   if (rows.length === 0) {
     return (
-      <section className="rounded-card border border-line bg-white p-8 text-center">
-        <p className="text-sm text-muted">{t.empty}</p>
-      </section>
+      <>
+        <section className="rounded-card border border-line bg-white p-8 text-center">
+          <p className="text-sm text-muted">{t.empty}</p>
+        </section>
+        {undoToast}
+      </>
     );
   }
 
@@ -152,6 +194,7 @@ export function TodoList({ items, language }: TodoListProps) {
           )}
         </div>
       )}
+      {undoToast}
     </section>
   );
 }
