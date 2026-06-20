@@ -22,6 +22,7 @@ const T = {
     copy: "Sao chép",
     copied: "Đã sao chép",
     todos: "Việc cần làm",
+    diary: "Nhật ký gia đình",
     trash: "Thùng rác",
   },
   en: {
@@ -31,6 +32,7 @@ const T = {
     copy: "Copy",
     copied: "Copied",
     todos: "To-do list",
+    diary: "Family diary",
     trash: "Trash",
   },
 } as const;
@@ -136,6 +138,14 @@ export function HeaderMenu({ role, language, displayName, inviteCode }: HeaderMe
             className="block px-4 py-3 text-sm hover:bg-bg active:bg-line transition-colors border-b border-line"
           >
             {t.todos}
+          </Link>
+
+          <Link
+            href="/diary"
+            onClick={() => setOpen(false)}
+            className="block px-4 py-3 text-sm hover:bg-bg active:bg-line transition-colors border-b border-line"
+          >
+            {t.diary}
           </Link>
 
           <Link

@@ -12,6 +12,7 @@ interface Options {
     | "checklist_items"
     | "family_todos"
     | "thread_views"
+    | "diary_entries"
   >;
   /** Unique channel name — use thread id / family id to scope. */
   channelName: string;

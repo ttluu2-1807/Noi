@@ -40,14 +40,24 @@ export async function listFamilyTags(
   supabase: SupabaseClient,
   familySpaceId: string,
 ): Promise<string[]> {
-  const { data } = await supabase
-    .from("threads")
-    .select("tags")
-    .eq("family_space_id", familySpaceId)
-    .is("deleted_at", null);
-  if (!data) return [];
+  // Pool the tag set from BOTH threads and diary entries so a single
+  // family taxonomy emerges across surfaces ("medicare" tagged on a
+  // thread autocompletes when tagging a diary entry, and vice versa).
+  const [threadsResult, diaryResult] = await Promise.all([
+    supabase
+      .from("threads")
+      .select("tags")
+      .eq("family_space_id", familySpaceId)
+      .is("deleted_at", null),
+    supabase
+      .from("diary_entries")
+      .select("tags")
+      .eq("family_space_id", familySpaceId)
+      .is("deleted_at", null),
+  ]);
   const set = new Set<string>();
-  for (const row of data) {
+  const rows = [...(threadsResult.data ?? []), ...(diaryResult.data ?? [])];
+  for (const row of rows) {
     const tags = Array.isArray(row.tags) ? (row.tags as string[]) : [];
     for (const t of tags) {
       const n = normaliseTag(t);

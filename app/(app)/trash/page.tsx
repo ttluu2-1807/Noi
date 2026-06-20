@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createServerClient } from "@/lib/supabase/server";
-import { TrashList, type DeletedThread, type DeletedTodo } from "./TrashList";
+import { TrashList, type DeletedThread, type DeletedTodo, type DeletedDiaryEntry } from "./TrashList";
 import type { Language } from "@/lib/language-detect";
 
 export const dynamic = "force-dynamic";
@@ -50,7 +50,7 @@ export default async function TrashPage() {
   const t = T[language];
   const backHref = profile.role === "parent" ? "/parent" : "/child";
 
-  const [threadsResult, todosResult] = await Promise.all([
+  const [threadsResult, todosResult, diaryResult] = await Promise.all([
     supabase
       .from("threads")
       .select("id, title_vi, title_en, deleted_at")
@@ -63,10 +63,17 @@ export default async function TrashPage() {
       .eq("family_space_id", profile.family_space_id)
       .not("deleted_at", "is", null)
       .order("deleted_at", { ascending: false }),
+    supabase
+      .from("diary_entries")
+      .select("id, kind, title_vi, title_en, deleted_at")
+      .eq("family_space_id", profile.family_space_id)
+      .not("deleted_at", "is", null)
+      .order("deleted_at", { ascending: false }),
   ]);
 
   const deletedThreads = (threadsResult.data ?? []) as DeletedThread[];
   const deletedTodos = (todosResult.data ?? []) as DeletedTodo[];
+  const deletedDiary = (diaryResult.data ?? []) as DeletedDiaryEntry[];
 
   return (
     <main className="mx-auto max-w-md px-6 py-10 space-y-8">
@@ -97,6 +104,7 @@ export default async function TrashPage() {
       <TrashList
         threads={deletedThreads}
         todos={deletedTodos}
+        diary={deletedDiary}
         language={language}
       />
     </main>

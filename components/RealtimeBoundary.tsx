@@ -10,6 +10,7 @@ interface RealtimeBoundaryProps {
     | "checklist_items"
     | "family_todos"
     | "thread_views"
+    | "diary_entries"
   >;
   /** Unique channel name — scope with family id or thread id. */
   channelName: string;
