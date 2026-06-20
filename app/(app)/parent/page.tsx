@@ -3,6 +3,7 @@ import { RealtimeBoundary } from "@/components/RealtimeBoundary";
 import { ParentHome } from "./ParentHome";
 import type { ThreadSummary, LatestMessageSummary } from "@/components/ThreadCard";
 import { fetchLatestMessagePerThread } from "@/lib/thread-previews";
+import { fetchParentInsights, type ParentInsights } from "@/lib/insights";
 
 export const dynamic = "force-dynamic";
 
@@ -82,7 +83,7 @@ export default async function ParentPage({
   const doneCount = doneCountResult.count ?? 0;
   const family = familyResult.data;
 
-  const [latestByThread, viewsResult] = await Promise.all([
+  const [latestByThread, viewsResult, parentInsights] = await Promise.all([
     fetchLatestMessagePerThread(supabase, visibleThreads.map((t) => t.id)),
     // Wave 3 I: fetch the current user's last_viewed_at for the visible
     // threads. We compute the unread set in JS — a thread is unread if
@@ -98,6 +99,7 @@ export default async function ParentPage({
             visibleThreads.map((t) => t.id),
           )
       : Promise.resolve({ data: [] as { thread_id: string; last_viewed_at: string }[] }),
+    fetchParentInsights(supabase, profile!.family_space_id!),
   ]);
 
   const lastViewedByThread = new Map<string, string>();
@@ -131,6 +133,7 @@ export default async function ParentPage({
         activeStatus={activeStatus}
         openCount={openCount}
         doneCount={doneCount}
+        insights={parentInsights as ParentInsights}
       />
     </RealtimeBoundary>
   );

@@ -11,7 +11,9 @@ import { HeaderMenu } from "@/components/HeaderMenu";
 import { StatusTabs } from "@/components/StatusTabs";
 import { HeroIllustration } from "@/components/HeroIllustration";
 import { SuggestedQuestions } from "@/components/SuggestedQuestions";
+import { TodayTodosBanner } from "@/components/insights/TodayTodosBanner";
 import { timeOfDayGreeting } from "@/lib/greeting";
+import type { ParentInsights } from "@/lib/insights";
 import type { Attachment } from "@/lib/storage";
 import type { Language } from "@/lib/language-detect";
 
@@ -27,6 +29,7 @@ interface ParentHomeProps {
   activeStatus: "open" | "done";
   openCount: number;
   doneCount: number;
+  insights: ParentInsights;
 }
 
 const T = {
@@ -67,6 +70,7 @@ export function ParentHome({
   activeStatus,
   openCount,
   doneCount,
+  insights,
 }: ParentHomeProps) {
   const router = useRouter();
   const t = T[language];
@@ -137,6 +141,8 @@ export function ParentHome({
           inviteCode={inviteCode}
         />
       </header>
+
+      <TodayTodosBanner todos={insights.todayTodos} language={language} />
 
       <section className="flex flex-col items-center gap-6">
         <VoiceInput

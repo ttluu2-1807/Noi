@@ -5,7 +5,9 @@ import { ThreadActionsMenu } from "@/components/ThreadActionsMenu";
 import { RealtimeBoundary } from "@/components/RealtimeBoundary";
 import { HeaderMenu } from "@/components/HeaderMenu";
 import { StatusTabs } from "@/components/StatusTabs";
+import { ChildInsightsRow } from "@/components/insights/ChildInsightsRow";
 import { fetchLatestMessagePerThread } from "@/lib/thread-previews";
+import { fetchChildInsights } from "@/lib/insights";
 
 export const dynamic = "force-dynamic";
 
@@ -81,7 +83,7 @@ export default async function ChildHome({
   const doneCount = doneCountResult.count ?? 0;
   const family = familyResult.data;
 
-  const [latestByThread, viewsResult] = await Promise.all([
+  const [latestByThread, viewsResult, childInsights] = await Promise.all([
     fetchLatestMessagePerThread(supabase, visibleThreads.map((t) => t.id)),
     visibleThreads.length > 0
       ? supabase
@@ -93,6 +95,7 @@ export default async function ChildHome({
             visibleThreads.map((t) => t.id),
           )
       : Promise.resolve({ data: [] as { thread_id: string; last_viewed_at: string }[] }),
+    fetchChildInsights(supabase, profile.family_space_id),
   ]);
 
   const lastViewedByThread = new Map<string, string>();
@@ -144,6 +147,8 @@ export default async function ChildHome({
             />
           </div>
         </header>
+
+        <ChildInsightsRow insights={childInsights} />
 
         {totalThreads === 0 ? (
           <section className="rounded-card border border-line bg-white p-8 text-center space-y-2">
