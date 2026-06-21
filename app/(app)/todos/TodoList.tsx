@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { toggleTodo, deleteTodo, restoreTodo } from "./actions";
 import { Toast } from "@/components/Toast";
+import { TodoActionsMenu } from "@/components/TodoActionsMenu";
 import { relativeTime } from "@/lib/relative-time";
 import type { Language } from "@/lib/language-detect";
 
@@ -256,17 +257,11 @@ function TodoItem({
             <span>{relativeTime(row.created_at, language)}</span>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            onDelete(row.id);
-          }}
-          className="shrink-0 text-xs text-muted/60 hover:text-red-600 transition-colors active:scale-95"
-          aria-label={t.delete}
-        >
-          {t.delete}
-        </button>
+        <TodoActionsMenu
+          todoId={row.id}
+          language={language}
+          onDelete={() => onDelete(row.id)}
+        />
       </label>
     </li>
   );

@@ -12,6 +12,7 @@ import { StatusTabs } from "@/components/StatusTabs";
 import { HeroIllustration } from "@/components/HeroIllustration";
 import { SuggestedQuestions } from "@/components/SuggestedQuestions";
 import { TodayTodosBanner } from "@/components/insights/TodayTodosBanner";
+import { QuickAccessRow } from "@/components/QuickAccessRow";
 import { timeOfDayGreeting } from "@/lib/greeting";
 import type { ParentInsights } from "@/lib/insights";
 import type { Attachment } from "@/lib/storage";
@@ -29,6 +30,7 @@ interface ParentHomeProps {
   activeStatus: "open" | "done";
   openCount: number;
   doneCount: number;
+  diaryCount: number;
   insights: ParentInsights;
 }
 
@@ -70,6 +72,7 @@ export function ParentHome({
   activeStatus,
   openCount,
   doneCount,
+  diaryCount,
   insights,
 }: ParentHomeProps) {
   const router = useRouter();
@@ -141,6 +144,38 @@ export function ParentHome({
           inviteCode={inviteCode}
         />
       </header>
+
+      <QuickAccessRow
+        language={language}
+        counts={{ threads: openCount, diary: diaryCount }}
+        hints={{
+          threads:
+            openCount > 0
+              ? language === "vi"
+                ? `${openCount} đang mở`
+                : `${openCount} open`
+              : language === "vi"
+                ? "—"
+                : "—",
+          todos:
+            insights.todayTodos.length > 0
+              ? language === "vi"
+                ? `${insights.todayTodos.length} hôm nay`
+                : `${insights.todayTodos.length} today`
+              : language === "vi"
+                ? "—"
+                : "—",
+          diary:
+            diaryCount > 0
+              ? language === "vi"
+                ? `${diaryCount} mục`
+                : `${diaryCount} entries`
+              : language === "vi"
+                ? "—"
+                : "—",
+        }}
+        activityHref="/parent"
+      />
 
       <TodayTodosBanner todos={insights.todayTodos} language={language} />
 

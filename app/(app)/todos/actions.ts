@@ -121,6 +121,64 @@ export async function addTodo(
   return { ok: true };
 }
 
+/**
+ * Edit an existing todo. Re-translates the text to the other language
+ * via Claude (same path as initial create — the existing extractTodos
+ * helper handles dual-language synthesis from a single-language input).
+ * Date is replaced wholesale; pass null to clear.
+ */
+export async function updateTodo(input: {
+  id: string;
+  text: string;
+  due_at: string | null;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!input.id) return { ok: false, error: "Missing id" };
+  const text = input.text.trim();
+  if (!text) return { ok: false, error: "Text is empty" };
+
+  const supabase = createServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Unauthorized" };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("family_space_id")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!profile?.family_space_id) return { ok: false, error: "Profile not ready" };
+
+  // Reuse extractTodos for the dual-language synthesis. It splits a
+  // free-form transcript into items — we pass a single-item input and
+  // take the first result.
+  const inputLang = detectLanguage(text);
+  let items;
+  try {
+    items = await extractTodos(text, inputLang, new Date().toISOString());
+  } catch {
+    return { ok: false, error: "Could not save that task" };
+  }
+  if (items.length === 0) return { ok: false, error: "Couldn't read that task" };
+  const item = items[0];
+
+  const { error } = await supabase
+    .from("family_todos")
+    .update({
+      text_vi: item.text_vi,
+      text_en: item.text_en,
+      // Prefer the explicit caller-provided due_at if set, else use what
+      // Claude extracted (which may be null if no date was mentioned).
+      due_at: input.due_at ?? item.due_at,
+    })
+    .eq("id", input.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/todos");
+  revalidatePath(`/todos/${input.id}/edit`);
+  return { ok: true };
+}
+
 export async function toggleTodo(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   if (!id) return;

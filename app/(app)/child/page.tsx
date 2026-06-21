@@ -6,6 +6,7 @@ import { RealtimeBoundary } from "@/components/RealtimeBoundary";
 import { HeaderMenu } from "@/components/HeaderMenu";
 import { StatusTabs } from "@/components/StatusTabs";
 import { ChildInsightsRow } from "@/components/insights/ChildInsightsRow";
+import { QuickAccessRow } from "@/components/QuickAccessRow";
 import { fetchLatestMessagePerThread } from "@/lib/thread-previews";
 import { fetchChildInsights } from "@/lib/insights";
 
@@ -36,8 +37,14 @@ export default async function ChildHome({
   const activeStatus: "open" | "done" =
     searchParams.status === "done" ? "done" : "open";
 
-  const [familyResult, visibleThreadsResult, openCountResult, doneCountResult] =
-    await Promise.all([
+  const [
+    familyResult,
+    visibleThreadsResult,
+    openCountResult,
+    doneCountResult,
+    openTodosCountResult,
+    diaryCountResult,
+  ] = await Promise.all([
       supabase
         .from("family_spaces")
         .select("invite_code, name")
@@ -76,11 +83,24 @@ export default async function ChildHome({
         .eq("family_space_id", profile.family_space_id)
         .eq("status", "resolved")
         .is("deleted_at", null),
+      supabase
+        .from("family_todos")
+        .select("*", { count: "exact", head: true })
+        .eq("family_space_id", profile.family_space_id)
+        .eq("is_completed", false)
+        .is("deleted_at", null),
+      supabase
+        .from("diary_entries")
+        .select("*", { count: "exact", head: true })
+        .eq("family_space_id", profile.family_space_id)
+        .is("deleted_at", null),
     ]);
 
   const visibleThreads = (visibleThreadsResult.data ?? []) as ThreadSummary[];
   const openCount = openCountResult.count ?? 0;
   const doneCount = doneCountResult.count ?? 0;
+  const openTodosCount = openTodosCountResult.count ?? 0;
+  const diaryCount = diaryCountResult.count ?? 0;
   const family = familyResult.data;
 
   const [latestByThread, viewsResult, childInsights] = await Promise.all([
@@ -147,6 +167,21 @@ export default async function ChildHome({
             />
           </div>
         </header>
+
+        <QuickAccessRow
+          language="en"
+          counts={{
+            threads: openCount,
+            todos: openTodosCount,
+            diary: diaryCount,
+          }}
+          hints={{
+            threads: openCount > 0 ? `${openCount} open` : "—",
+            todos: openTodosCount > 0 ? `${openTodosCount} active` : "—",
+            diary: diaryCount > 0 ? `${diaryCount} entries` : "—",
+          }}
+          activityHref="/child"
+        />
 
         <ChildInsightsRow insights={childInsights} />
 

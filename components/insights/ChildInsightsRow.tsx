@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ChildInsights } from "@/lib/insights";
 import { relativeTime } from "@/lib/relative-time";
+import { ThinkingIcon } from "@/components/icons";
 
 interface ChildInsightsRowProps {
   insights: ChildInsights;
@@ -35,9 +36,13 @@ export function ChildInsightsRow({ insights }: ChildInsightsRowProps) {
     <section className="space-y-3">
       <h2 className="text-sm text-muted uppercase tracking-wide">Highlights</h2>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {/* Card 1 — This week summary */}
+        {/* Card 1 — This week summary. Linked to /child so the user can
+            drill into the activity stream from the highlight. */}
         {hasWeekly && (
-          <article className="rounded-card border border-line bg-white p-4 space-y-2 animate-fade-rise">
+          <Link
+            href="/child"
+            className="block rounded-card border border-line bg-white p-4 space-y-2 hover:border-accent/40 hover:shadow-sm transition-all active:scale-[0.995] animate-fade-rise"
+          >
             <h3 className="text-xs text-muted uppercase tracking-wide">
               This week
             </h3>
@@ -60,7 +65,7 @@ export function ChildInsightsRow({ insights }: ChildInsightsRowProps) {
                 Parent hasn&apos;t asked anything in {parentLastActiveDays} days
               </p>
             )}
-          </article>
+          </Link>
         )}
 
         {/* Card 2 — Due soon */}
@@ -102,8 +107,9 @@ export function ChildInsightsRow({ insights }: ChildInsightsRowProps) {
             <ul className="space-y-2 text-sm">
               {recentDecisions.map((d) => (
                 <li key={d.id} className="space-y-0.5">
-                  <p className="text-ink font-medium line-clamp-1">
-                    🤔 {d.title_en}
+                  <p className="text-ink font-medium line-clamp-1 flex items-center gap-1.5">
+                    <ThinkingIcon className="h-3.5 w-3.5 text-accent shrink-0" />
+                    <span className="truncate">{d.title_en}</span>
                   </p>
                   {d.context_en && (
                     <p className="text-xs text-muted italic line-clamp-2">

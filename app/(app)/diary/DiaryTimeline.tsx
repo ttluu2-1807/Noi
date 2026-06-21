@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { relativeTime } from "@/lib/relative-time";
 import { tagColors } from "@/lib/tags";
+import { CalendarIcon, DiaryIcon, ThinkingIcon } from "@/components/icons";
 import type { Language } from "@/lib/language-detect";
 
 export interface DiaryRow {
@@ -26,11 +27,17 @@ interface DiaryTimelineProps {
   language: Language;
 }
 
-const KIND_ICON: Record<DiaryRow["kind"], string> = {
-  event: "📅",
-  decision: "🤔",
-  note: "📝",
-};
+function KindIcon({ kind }: { kind: DiaryRow["kind"] }) {
+  const className = "h-4 w-4 text-accent shrink-0";
+  switch (kind) {
+    case "event":
+      return <CalendarIcon className={className} />;
+    case "decision":
+      return <ThinkingIcon className={className} />;
+    case "note":
+      return <DiaryIcon className={className} />;
+  }
+}
 
 const KIND_LABEL: Record<Language, Record<DiaryRow["kind"], string>> = {
   vi: { event: "Sự kiện", decision: "Quyết định", note: "Ghi chú" },
@@ -133,7 +140,7 @@ function DiaryCard({
       <div className="space-y-2">
         <div className="flex items-start justify-between gap-3">
           <h3 className="font-medium text-ink truncate flex-1 min-w-0 flex items-center gap-2">
-            <span aria-hidden>{KIND_ICON[row.kind]}</span>
+            <KindIcon kind={row.kind} />
             <span className="truncate">{title}</span>
           </h3>
           <span className="shrink-0 text-xs px-2 py-0.5 rounded-full bg-line/60 text-muted">

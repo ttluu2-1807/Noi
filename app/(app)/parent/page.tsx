@@ -39,7 +39,7 @@ export default async function ParentPage({
   // tab's count (so the tab pill shows the right number). The query
   // for the visible tab uses .limit() to cap rows; the count queries
   // use head:true so no rows transfer, only a number.
-  const [familyResult, visibleThreadsResult, openCountResult, doneCountResult] =
+  const [familyResult, visibleThreadsResult, openCountResult, doneCountResult, diaryCountResult] =
     await Promise.all([
       supabase
         .from("family_spaces")
@@ -79,11 +79,17 @@ export default async function ParentPage({
         .eq("family_space_id", profile.family_space_id)
         .eq("status", "resolved")
         .is("deleted_at", null),
+      supabase
+        .from("diary_entries")
+        .select("*", { count: "exact", head: true })
+        .eq("family_space_id", profile.family_space_id)
+        .is("deleted_at", null),
     ]);
 
   const visibleThreads = (visibleThreadsResult.data ?? []) as ThreadSummary[];
   const openCount = openCountResult.count ?? 0;
   const doneCount = doneCountResult.count ?? 0;
+  const diaryCount = diaryCountResult.count ?? 0;
   const family = familyResult.data;
 
   const [latestByThread, viewsResult, parentInsights] = await Promise.all([
@@ -136,6 +142,7 @@ export default async function ParentPage({
         activeStatus={activeStatus}
         openCount={openCount}
         doneCount={doneCount}
+        diaryCount={diaryCount}
         insights={parentInsights as ParentInsights}
       />
     </RealtimeBoundary>
