@@ -58,39 +58,58 @@ export async function fetchParentInsights(
   supabase: SupabaseClient,
   familySpaceId: string,
 ): Promise<ParentInsights> {
-  // Due today or overdue, not yet ticked.
-  const endOfToday = new Date();
-  endOfToday.setHours(23, 59, 59, 999);
+  // Wrapped defensively — if anything throws (Supabase quirk, missing
+  // table during migration, RLS surprise), we degrade to no insights
+  // rather than blowing up the entire home page render.
+  try {
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
 
-  const { data } = await supabase
-    .from("family_todos")
-    .select("id, text_vi, text_en, due_at")
-    .eq("family_space_id", familySpaceId)
-    .eq("is_completed", false)
-    .is("deleted_at", null)
-    .not("due_at", "is", null)
-    .lte("due_at", endOfToday.toISOString())
-    .order("due_at", { ascending: true })
-    .limit(10);
+    const { data, error } = await supabase
+      .from("family_todos")
+      .select("id, text_vi, text_en, due_at")
+      .eq("family_space_id", familySpaceId)
+      .eq("is_completed", false)
+      .is("deleted_at", null)
+      .not("due_at", "is", null)
+      .lte("due_at", endOfToday.toISOString())
+      .order("due_at", { ascending: true })
+      .limit(10);
 
-  return { todayTodos: (data ?? []) as ParentInsights["todayTodos"] };
+    if (error) {
+      console.error("[fetchParentInsights] query error:", error);
+      return { todayTodos: [] };
+    }
+    return { todayTodos: (data ?? []) as ParentInsights["todayTodos"] };
+  } catch (err) {
+    console.error("[fetchParentInsights] threw:", err);
+    return { todayTodos: [] };
+  }
 }
+
+const EMPTY_CHILD_INSIGHTS: ChildInsights = {
+  weekly: { threadsCreated: 0, todosCompleted: 0, diaryEntriesAdded: 0 },
+  dueSoon: [],
+  recentDecisions: [],
+  parentLastActiveDays: null,
+};
 
 export async function fetchChildInsights(
   supabase: SupabaseClient,
   familySpaceId: string,
 ): Promise<ChildInsights> {
-  const sevenDaysAgo = new Date(Date.now() - 7 * DAY_MS).toISOString();
-  const sevenDaysAhead = new Date(Date.now() + 7 * DAY_MS).toISOString();
+  try {
+    const sevenDaysAgo = new Date(Date.now() - 7 * DAY_MS).toISOString();
+    const sevenDaysAhead = new Date(Date.now() + 7 * DAY_MS).toISOString();
 
-  const [
-    threadsCount,
-    todosCount,
-    diaryCount,
-    dueSoonResult,
-    recentDecisionsResult,
-    lastParentResult,
-  ] = await Promise.all([
+    const [
+      threadsCount,
+      todosCount,
+      diaryCount,
+      dueSoonResult,
+      recentDecisionsResult,
+      lastParentResult,
+    ] = await Promise.all([
     supabase
       .from("threads")
       .select("*", { count: "exact", head: true })
@@ -142,19 +161,23 @@ export async function fetchChildInsights(
       .maybeSingle(),
   ]);
 
-  const lastParentAt = lastParentResult.data?.created_at as string | undefined;
-  const parentLastActiveDays = lastParentAt
-    ? Math.floor((Date.now() - new Date(lastParentAt).getTime()) / DAY_MS)
-    : null;
+    const lastParentAt = lastParentResult.data?.created_at as string | undefined;
+    const parentLastActiveDays = lastParentAt
+      ? Math.floor((Date.now() - new Date(lastParentAt).getTime()) / DAY_MS)
+      : null;
 
-  return {
-    weekly: {
-      threadsCreated: threadsCount.count ?? 0,
-      todosCompleted: todosCount.count ?? 0,
-      diaryEntriesAdded: diaryCount.count ?? 0,
-    },
-    dueSoon: (dueSoonResult.data ?? []) as ChildInsights["dueSoon"],
-    recentDecisions: (recentDecisionsResult.data ?? []) as ChildInsights["recentDecisions"],
-    parentLastActiveDays,
-  };
+    return {
+      weekly: {
+        threadsCreated: threadsCount.count ?? 0,
+        todosCompleted: todosCount.count ?? 0,
+        diaryEntriesAdded: diaryCount.count ?? 0,
+      },
+      dueSoon: (dueSoonResult.data ?? []) as ChildInsights["dueSoon"],
+      recentDecisions: (recentDecisionsResult.data ?? []) as ChildInsights["recentDecisions"],
+      parentLastActiveDays,
+    };
+  } catch (err) {
+    console.error("[fetchChildInsights] threw:", err);
+    return EMPTY_CHILD_INSIGHTS;
+  }
 }

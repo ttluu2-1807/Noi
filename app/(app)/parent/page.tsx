@@ -27,8 +27,11 @@ export default async function ParentPage({
     .select("display_name, family_space_id, language_preference")
     .eq("id", user.id)
     .maybeSingle();
+  // Guard against a missing profile (RLS issue, network blip, etc.) so
+  // the page doesn't crash on the non-null assertions below.
+  if (!profile?.family_space_id) return null;
 
-  const language = (profile?.language_preference ?? "vi") as "vi" | "en";
+  const language = (profile.language_preference ?? "vi") as "vi" | "en";
   const activeStatus: "open" | "done" =
     searchParams.status === "done" ? "done" : "open";
 
@@ -41,7 +44,7 @@ export default async function ParentPage({
       supabase
         .from("family_spaces")
         .select("invite_code")
-        .eq("id", profile!.family_space_id!)
+        .eq("id", profile.family_space_id)
         .maybeSingle(),
       activeStatus === "done"
         ? supabase
@@ -49,7 +52,7 @@ export default async function ParentPage({
             .select(
               "id, title_vi, title_en, tags, status, updated_at, initiated_by_role",
             )
-            .eq("family_space_id", profile!.family_space_id!)
+            .eq("family_space_id", profile.family_space_id)
             .eq("status", "resolved")
             .is("deleted_at", null)
             .order("updated_at", { ascending: false })
@@ -59,7 +62,7 @@ export default async function ParentPage({
             .select(
               "id, title_vi, title_en, tags, status, updated_at, initiated_by_role",
             )
-            .eq("family_space_id", profile!.family_space_id!)
+            .eq("family_space_id", profile.family_space_id)
             .neq("status", "resolved")
             .is("deleted_at", null)
             .order("updated_at", { ascending: false })
@@ -67,13 +70,13 @@ export default async function ParentPage({
       supabase
         .from("threads")
         .select("*", { count: "exact", head: true })
-        .eq("family_space_id", profile!.family_space_id!)
+        .eq("family_space_id", profile.family_space_id)
         .neq("status", "resolved")
         .is("deleted_at", null),
       supabase
         .from("threads")
         .select("*", { count: "exact", head: true })
-        .eq("family_space_id", profile!.family_space_id!)
+        .eq("family_space_id", profile.family_space_id)
         .eq("status", "resolved")
         .is("deleted_at", null),
     ]);
@@ -99,7 +102,7 @@ export default async function ParentPage({
             visibleThreads.map((t) => t.id),
           )
       : Promise.resolve({ data: [] as { thread_id: string; last_viewed_at: string }[] }),
-    fetchParentInsights(supabase, profile!.family_space_id!),
+    fetchParentInsights(supabase, profile.family_space_id),
   ]);
 
   const lastViewedByThread = new Map<string, string>();
@@ -118,7 +121,7 @@ export default async function ParentPage({
   return (
     <RealtimeBoundary
       tables={["threads", "messages", "thread_views"]}
-      channelName={`parent-home-${profile?.family_space_id ?? "none"}`}
+      channelName={`parent-home-${profile.family_space_id}`}
     >
       <ParentHome
         displayName={
@@ -128,7 +131,7 @@ export default async function ParentPage({
         latestMessages={latestByThread as Record<string, LatestMessageSummary>}
         unreadThreadIds={unreadThreadIds}
         language={language}
-        familySpaceId={profile!.family_space_id!}
+        familySpaceId={profile.family_space_id}
         inviteCode={family?.invite_code ?? null}
         activeStatus={activeStatus}
         openCount={openCount}
