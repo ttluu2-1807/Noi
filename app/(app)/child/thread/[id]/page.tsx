@@ -10,6 +10,7 @@ import { TagSelector } from "@/components/TagSelector";
 import { ThreadTabs } from "@/components/ThreadTabs";
 import { DayDivider, withDayDividers } from "@/components/DayDivider";
 import { listFamilyTags } from "@/lib/tags";
+import { fetchFamilyMembers, membersById } from "@/lib/family-members";
 import { ChildComposer } from "./ChildComposer";
 import { setThreadStatus, setThreadTags } from "./actions";
 
@@ -134,7 +135,11 @@ export default async function ChildThreadPage({
         {tab === "chat" ? (
           <>
             <Suspense fallback={<MessagesSkeleton />}>
-              <MessagesSection threadId={thread.id} autoRead={autoRead} />
+              <MessagesSection
+                threadId={thread.id}
+                autoRead={autoRead}
+                familySpaceId={profile.family_space_id}
+              />
             </Suspense>
             <ChildComposer
               threadId={thread.id}
@@ -209,21 +214,30 @@ async function ThreadTabsWithCounts({
 async function MessagesSection({
   threadId,
   autoRead,
+  familySpaceId,
 }: {
   threadId: string;
   autoRead: boolean;
+  familySpaceId: string;
 }) {
   const supabase = createServerClient();
-  const { data: messages } = await supabase
-    .from("messages")
-    .select(
-      "id, sender_role, content_vi, content_en, message_type, attachments, created_at",
-    )
-    .eq("thread_id", threadId)
-    .order("created_at", { ascending: true });
-  const list = messages ?? [];
+  const [messagesResult, members] = await Promise.all([
+    supabase
+      .from("messages")
+      .select(
+        "id, sender_role, sender_id, content_vi, content_en, message_type, attachments, created_at",
+      )
+      .eq("thread_id", threadId)
+      .order("created_at", { ascending: true }),
+    fetchFamilyMembers(supabase, familySpaceId),
+  ]);
+  const list = messagesResult.data ?? [];
 
   if (list.length === 0) return null;
+
+  const memberNames: Record<string, string> = Object.fromEntries(
+    Object.entries(membersById(members)).map(([id, m]) => [id, m.display_name]),
+  );
 
   return (
     <section className="space-y-4">
@@ -241,6 +255,7 @@ async function MessagesSection({
             viewerLanguage="en"
             allowToggle
             autoRead={autoRead}
+            memberNames={memberNames}
           />
         ),
       )}

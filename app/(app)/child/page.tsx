@@ -8,6 +8,7 @@ import { StatusTabs } from "@/components/StatusTabs";
 import { ChildInsightsRow } from "@/components/insights/ChildInsightsRow";
 import { QuickAccessRow } from "@/components/QuickAccessRow";
 import { fetchLatestMessagePerThread } from "@/lib/thread-previews";
+import { fetchFamilyMembers, membersById } from "@/lib/family-members";
 import { fetchChildInsights } from "@/lib/insights";
 
 
@@ -102,7 +103,7 @@ export default async function ChildHome({
   const diaryCount = diaryCountResult.count ?? 0;
   const family = familyResult.data;
 
-  const [latestByThread, viewsResult, childInsights] = await Promise.all([
+  const [latestByThread, viewsResult, childInsights, familyMembers] = await Promise.all([
     fetchLatestMessagePerThread(supabase, visibleThreads.map((t) => t.id)),
     visibleThreads.length > 0
       ? supabase
@@ -115,7 +116,15 @@ export default async function ChildHome({
           )
       : Promise.resolve({ data: [] as { thread_id: string; last_viewed_at: string }[] }),
     fetchChildInsights(supabase, profile.family_space_id),
+    fetchFamilyMembers(supabase, profile.family_space_id),
   ]);
+
+  const memberNamesById: Record<string, string> = Object.fromEntries(
+    Object.entries(membersById(familyMembers)).map(([id, m]) => [
+      id,
+      m.display_name,
+    ]),
+  );
 
   const lastViewedByThread = new Map<string, string>();
   for (const row of viewsResult.data ?? []) {
@@ -188,7 +197,7 @@ export default async function ChildHome({
           <section className="rounded-card border border-line bg-white p-8 text-center space-y-2">
             <p className="text-muted">No activity yet.</p>
             <p className="text-sm text-muted/80">
-              When your parent asks Noi a question, it&apos;ll appear here
+              When a parent asks Noi a question, it&apos;ll appear here
               automatically.
             </p>
           </section>
@@ -215,6 +224,7 @@ export default async function ChildHome({
                       language="en"
                       basePath="/child/thread"
                       latestMessage={latestByThread[t.id]}
+                      memberNames={memberNamesById}
                       unread={unreadThreadIds.has(t.id)}
                       highlight={t.status === "open"}
                       actions={

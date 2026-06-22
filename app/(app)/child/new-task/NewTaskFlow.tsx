@@ -111,7 +111,7 @@ export function NewTaskFlow() {
           </svg>
           Dashboard
         </Link>
-        <h1 className="text-2xl font-medium">New task for your parent</h1>
+        <h1 className="text-2xl font-medium">New task for a parent</h1>
         <p className="text-muted text-sm mt-1">
           Write in English — we&apos;ll translate and generate step-by-step
           instructions in Vietnamese.
@@ -128,7 +128,7 @@ export function NewTaskFlow() {
             />
           </div>
           <label className="block space-y-2">
-            <span className="text-sm text-muted">What should your parent do?</span>
+            <span className="text-sm text-muted">What should they do?</span>
             <textarea
               value={task}
               onChange={(e) => setTask(e.target.value)}
@@ -161,7 +161,7 @@ export function NewTaskFlow() {
         <div className="space-y-5">
           <section className="rounded-card border border-line bg-white p-5 space-y-3">
             <div className="text-sm text-muted uppercase tracking-wide">
-              The task (in Vietnamese for your parent — edit if needed)
+              The task (in Vietnamese — edit if needed)
             </div>
             <textarea
               value={preview.taskVi}

@@ -20,6 +20,7 @@ const T = {
     kindEvent: "Sự kiện",
     kindDecision: "Quyết định",
     kindNote: "Ghi chú",
+    loggedBy: "Ghi bởi",
   },
   en: {
     back: "Diary",
@@ -33,6 +34,7 @@ const T = {
     kindEvent: "Event",
     kindDecision: "Decision",
     kindNote: "Note",
+    loggedBy: "Logged by",
   },
 } as const;
 
@@ -59,11 +61,21 @@ export default async function DiaryDetailPage({
   const { data: entry } = await supabase
     .from("diary_entries")
     .select(
-      "id, kind, title_vi, title_en, body_vi, body_en, context_vi, context_en, event_date, tags, attachments, related_thread_id, deleted_at, created_at, updated_at",
+      "id, kind, title_vi, title_en, body_vi, body_en, context_vi, context_en, event_date, tags, attachments, related_thread_id, deleted_at, created_at, updated_at, created_by",
     )
     .eq("id", params.id)
     .maybeSingle();
   if (!entry || entry.deleted_at) notFound();
+
+  let loggedByName: string | null = null;
+  if (entry.created_by) {
+    const { data: logger } = await supabase
+      .from("profiles")
+      .select("display_name")
+      .eq("id", entry.created_by)
+      .maybeSingle();
+    loggedByName = (logger?.display_name as string | null) ?? null;
+  }
 
   const title = language === "vi" ? entry.title_vi : entry.title_en;
   const body = language === "vi" ? entry.body_vi : entry.body_en;
@@ -124,6 +136,11 @@ export default async function DiaryDetailPage({
               <h1 className="text-2xl font-medium leading-snug">{title}</h1>
               {formattedDate && (
                 <p className="text-sm text-muted">{formattedDate}</p>
+              )}
+              {loggedByName && (
+                <p className="text-xs text-muted/80">
+                  {t.loggedBy} {loggedByName}
+                </p>
               )}
             </div>
             <DiaryDetailActions id={entry.id} language={language} />

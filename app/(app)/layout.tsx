@@ -24,7 +24,10 @@ export default async function AppLayout({
     .maybeSingle();
 
   if (!profile) redirect("/setup");
-  if (!profile.family_space_id) redirect("/join");
+  // Legacy safety net: in the current flow /setup always creates or joins a
+  // family space before the profile is written, so no profile should be
+  // family-less. Older accounts predating that change may still land here.
+  if (!profile.family_space_id) redirect("/setup");
   // Parents see a 3-screen welcome tour the first time they sign in.
   // Children skip it for now — they're bilingual and figure the UI out
   // faster. The tour lives at /onboarding (outside this layout group)

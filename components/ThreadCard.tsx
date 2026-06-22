@@ -22,6 +22,8 @@ export interface LatestMessageSummary {
   content_vi: string | null;
   content_en: string | null;
   sender_role: "parent" | "child" | "assistant" | null;
+  /** When set + role is parent/child, the caller can resolve a name. */
+  sender_id: string | null;
   has_attachment: boolean;
 }
 
@@ -35,6 +37,13 @@ interface ThreadCardProps {
   latestMessage?: LatestMessageSummary | null;
   /** When true, shows a small unread dot next to the title. */
   unread?: boolean;
+  /**
+   * Lookup of sender display names by user id. Used to render
+   * "Mai: ..." or "Dad: ..." in the preview when we have multiple
+   * parents or multiple children in a family. If a sender_id isn't
+   * in this map (or isn't set), we fall back to the role label.
+   */
+  memberNames?: Record<string, string>;
   /**
    * Optional slot for an in-corner action menu (e.g. three-dot →
    * Delete). Positioned absolutely top-right; click handling is the
@@ -68,6 +77,7 @@ export function ThreadCard({
   latestMessage,
   unread,
   actions,
+  memberNames,
 }: ThreadCardProps) {
   const primary =
     (language === "vi" ? thread.title_vi : thread.title_en) ??
@@ -83,9 +93,16 @@ export function ThreadCard({
   const previewTruncated =
     preview.length > PREVIEW_MAX ? preview.slice(0, PREVIEW_MAX).trim() + "…" : preview;
 
-  const senderPrefix = latestMessage?.sender_role
-    ? ROLE_PREFIX[language][latestMessage.sender_role]
-    : null;
+  // Prefer the actual sender's name if we have it — falls back to a
+  // generic role label ("Parent", "Bạn", "Noi") otherwise. Showing
+  // names makes families with two parents readable at a glance.
+  const senderName =
+    latestMessage?.sender_id && memberNames?.[latestMessage.sender_id];
+  const senderPrefix = senderName
+    ? senderName
+    : latestMessage?.sender_role
+      ? ROLE_PREFIX[language][latestMessage.sender_role]
+      : null;
 
   const status = thread.status === "resolved" ? "resolved" : "open";
 

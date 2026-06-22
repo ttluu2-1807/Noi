@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { SubmitButton } from "@/components/SubmitButton";
 import { sendMagicLink } from "./actions";
 
@@ -41,12 +40,6 @@ export default function LoginPage({
         </SubmitButton>
       </form>
 
-      <div className="text-center text-sm text-muted">
-        Have a family invite code?{" "}
-        <Link href="/join" className="text-accent hover:underline">
-          Join a family
-        </Link>
-      </div>
     </div>
   );
 }

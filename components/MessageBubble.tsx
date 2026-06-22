@@ -9,6 +9,7 @@ import { getAttachmentSignedUrl, type Attachment } from "@/lib/storage";
 export interface MessageRow {
   id: string;
   sender_role: "parent" | "child" | "assistant" | null;
+  sender_id?: string | null;
   content_vi: string | null;
   content_en: string | null;
   message_type: string | null;
@@ -37,6 +38,13 @@ interface MessageBubbleProps {
    * messages every time a user reloads the page.
    */
   autoRead?: boolean;
+  /**
+   * Optional lookup of sender_id -> display name. When present and
+   * the message has a sender_id we know about, the bubble shows the
+   * actual person's name instead of the generic role label. Lets us
+   * distinguish "Mum" from "Dad" or "Mai" from "Hùng" inside a thread.
+   */
+  memberNames?: Record<string, string>;
 }
 
 const ROLE_LABEL: Record<Language, Record<NonNullable<MessageRow["sender_role"]>, string>> = {
@@ -67,6 +75,7 @@ export function MessageBubble({
   allowToggle = true,
   showTTS = true,
   autoRead = false,
+  memberNames,
 }: MessageBubbleProps) {
   const [lang, setLang] = useState<Language>(viewerLanguage);
   const [speaking, setSpeaking] = useState(false);
@@ -77,9 +86,17 @@ export function MessageBubble({
     (other === "vi" ? message.content_vi : message.content_en)?.trim().length ?? 0;
 
   const isAssistant = message.sender_role === "assistant";
-  const roleLabel = message.sender_role
-    ? ROLE_LABEL[lang][message.sender_role]
-    : null;
+  // Prefer the actual sender's name when we have it (so two parents
+  // are distinguishable). Fall back to the generic role label.
+  const senderName =
+    message.sender_id && memberNames?.[message.sender_id]
+      ? memberNames[message.sender_id]
+      : null;
+  const roleLabel = senderName
+    ? senderName
+    : message.sender_role
+      ? ROLE_LABEL[lang][message.sender_role]
+      : null;
 
   const onSpeak = () => {
     if (!isTTSSupported()) return;

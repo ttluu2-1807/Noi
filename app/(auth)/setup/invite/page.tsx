@@ -12,9 +12,10 @@ export default function InviteCodePage({
   return (
     <div className="space-y-8 text-center">
       <div className="space-y-3">
-        <h1 className="text-2xl font-medium">Share this with your parent</h1>
+        <h1 className="text-2xl font-medium">Share this with your family</h1>
         <p className="text-muted">
-          Send them this code so they can join your family space.
+          Send this code to your parents and any siblings so they can join your
+          family space.
         </p>
       </div>
 

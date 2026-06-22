@@ -10,6 +10,7 @@ import { TagSelector } from "@/components/TagSelector";
 import { ThreadTabs } from "@/components/ThreadTabs";
 import { DayDivider, withDayDividers } from "@/components/DayDivider";
 import { listFamilyTags } from "@/lib/tags";
+import { fetchFamilyMembers, membersById } from "@/lib/family-members";
 import { FollowUpInput } from "./FollowUpInput";
 // Shared with the child side — both roles can edit status + tags.
 import {
@@ -171,6 +172,7 @@ export default async function ParentThreadPage({
                 threadId={thread.id}
                 language={language}
                 autoRead={autoRead}
+                familySpaceId={profile.family_space_id}
               />
             </Suspense>
             <FollowUpInput
@@ -258,20 +260,29 @@ async function MessagesSection({
   threadId,
   language,
   autoRead,
+  familySpaceId,
 }: {
   threadId: string;
   language: Language;
   autoRead: boolean;
+  familySpaceId: string;
 }) {
   const supabase = createServerClient();
-  const { data: messages } = await supabase
-    .from("messages")
-    .select(
-      "id, sender_role, content_vi, content_en, message_type, attachments, created_at",
-    )
-    .eq("thread_id", threadId)
-    .order("created_at", { ascending: true });
-  const list = messages ?? [];
+  const [messagesResult, members] = await Promise.all([
+    supabase
+      .from("messages")
+      .select(
+        "id, sender_role, sender_id, content_vi, content_en, message_type, attachments, created_at",
+      )
+      .eq("thread_id", threadId)
+      .order("created_at", { ascending: true }),
+    fetchFamilyMembers(supabase, familySpaceId),
+  ]);
+  const list = messagesResult.data ?? [];
+
+  const memberNames: Record<string, string> = Object.fromEntries(
+    Object.entries(membersById(members)).map(([id, m]) => [id, m.display_name]),
+  );
 
   return (
     <section className="space-y-5">
@@ -290,6 +301,7 @@ async function MessagesSection({
             allowToggle
             showTTS
             autoRead={autoRead}
+            memberNames={memberNames}
           />
         ),
       )}

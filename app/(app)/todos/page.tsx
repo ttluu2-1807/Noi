@@ -5,6 +5,7 @@ import { RealtimeBoundary } from "@/components/RealtimeBoundary";
 import { HeaderMenu } from "@/components/HeaderMenu";
 import { TodoComposer } from "./TodoComposer";
 import { TodoList, type TodoRow } from "./TodoList";
+import { fetchFamilyMembers, membersById } from "@/lib/family-members";
 import type { Language } from "@/lib/language-detect";
 
 
@@ -126,16 +127,28 @@ async function TodoListSection({
   language: Language;
 }) {
   const supabase = createServerClient();
-  const { data: todos } = await supabase
-    .from("family_todos")
-    .select(
-      "id, text_vi, text_en, due_at, assignee_role, is_completed, completed_at, created_at",
-    )
-    .eq("family_space_id", familySpaceId)
-    .is("deleted_at", null)
-    .order("is_completed", { ascending: true })
-    .order("created_at", { ascending: false });
-  return <TodoList items={(todos ?? []) as TodoRow[]} language={language} />;
+  const [todosResult, members] = await Promise.all([
+    supabase
+      .from("family_todos")
+      .select(
+        "id, text_vi, text_en, due_at, assignee_role, is_completed, completed_at, created_at, created_by",
+      )
+      .eq("family_space_id", familySpaceId)
+      .is("deleted_at", null)
+      .order("is_completed", { ascending: true })
+      .order("created_at", { ascending: false }),
+    fetchFamilyMembers(supabase, familySpaceId),
+  ]);
+  const memberNames: Record<string, string> = Object.fromEntries(
+    Object.entries(membersById(members)).map(([id, m]) => [id, m.display_name]),
+  );
+  return (
+    <TodoList
+      items={(todosResult.data ?? []) as TodoRow[]}
+      language={language}
+      memberNames={memberNames}
+    />
+  );
 }
 
 function TodoListSkeleton() {

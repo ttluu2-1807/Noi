@@ -22,6 +22,8 @@ interface ParentHomeProps {
   displayName: string;
   recentThreads: ThreadSummary[];
   latestMessages: Record<string, LatestMessageSummary>;
+  /** sender id -> display name lookup, for naming the latest-message sender. */
+  memberNames: Record<string, string>;
   /** Thread ids with new activity since this user last viewed. */
   unreadThreadIds: Set<string>;
   language: Language;
@@ -65,6 +67,7 @@ export function ParentHome({
   displayName,
   recentThreads,
   latestMessages,
+  memberNames,
   unreadThreadIds,
   language,
   familySpaceId,
@@ -258,6 +261,7 @@ export function ParentHome({
                     language={language}
                     basePath="/parent/thread"
                     latestMessage={latestMessages[thread.id]}
+                    memberNames={memberNames}
                     unread={unreadThreadIds.has(thread.id)}
                     // Highlight tasks the child set up for the parent — these
                     // feel new and distinct from the parent's own questions.

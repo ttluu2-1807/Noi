@@ -4,30 +4,33 @@ import { redirect } from "next/navigation";
 import { createServerClient, createServiceRoleClient } from "@/lib/supabase/server";
 
 /**
- * First-time setup. Called after a user signs in via magic link
- * but before they have a profile row.
+ * First-time setup after magic-link sign-in.
  *
- * For role=child: creates a new family space and profile, then shows
- * the invite code to share with their parent.
+ * Three branches, all from a single form:
+ *   1. role=parent, mode=new    → create a new family, parent is first member
+ *   2. role=parent, mode=join   → join an existing family via invite code (second parent)
+ *   3. role=child              → /setup is no longer the child entry-point;
+ *                                kids/helpers join via /join with a code their
+ *                                parent shared.
  *
- * For role=parent: creates a profile but no family space yet — they'll
- * be redirected to /join to enter their child's invite code.
- *
- * Uses the service role client because the `profiles` RLS policy is
- * self-referential: a brand-new user has no existing row to satisfy
- * the "family_space_id in (select … from profiles where id = auth.uid())"
- * check on insert. The service role client bypasses RLS safely because
- * we've already verified the user's identity from the session cookie.
+ * Uses the service role to bypass the self-referential profiles RLS policy.
+ * Identity is verified from the session cookie before any write.
  */
 export async function completeSetup(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const role = String(formData.get("role") ?? "");
+  const mode = String(formData.get("mode") ?? "new");
+  const rawCode = String(formData.get("code") ?? "").trim().toUpperCase();
+  const code = rawCode.replace(/[^A-Z0-9]/g, "");
 
   if (!name) {
     redirect(`/setup?error=${encodeURIComponent("Please enter your name.")}`);
   }
   if (role !== "parent" && role !== "child") {
     redirect(`/setup?error=${encodeURIComponent("Please choose a role.")}`);
+  }
+  if ((role === "child" || mode === "join") && code.length !== 6) {
+    redirect(`/setup?error=${encodeURIComponent("Family codes are 6 characters.")}`);
   }
 
   const supabase = createServerClient();
@@ -38,22 +41,36 @@ export async function completeSetup(formData: FormData) {
 
   const admin = createServiceRoleClient();
 
-  // Parents wait to join via invite code — create profile with no family yet.
-  if (role === "parent") {
-    const { error } = await admin.from("profiles").upsert({
+  // Branches 2 + 3: anything joining an existing family.
+  if (mode === "join" || role === "child") {
+    const { data: space, error: spaceError } = await admin
+      .from("family_spaces")
+      .select("id")
+      .eq("invite_code", code)
+      .maybeSingle();
+
+    if (spaceError) {
+      redirect(`/setup?error=${encodeURIComponent(spaceError.message)}`);
+    }
+    if (!space) {
+      redirect(`/setup?error=${encodeURIComponent("We couldn't find that family code.")}`);
+    }
+
+    const { error: profileError } = await admin.from("profiles").upsert({
       id: user.id,
       display_name: name,
-      role: "parent",
-      language_preference: "vi",
-      family_space_id: null,
+      role,
+      // Parents default to Vietnamese, children to English. Either can change later.
+      language_preference: role === "parent" ? "vi" : "en",
+      family_space_id: space.id,
     });
-    if (error) {
-      redirect(`/setup?error=${encodeURIComponent(error.message)}`);
+    if (profileError) {
+      redirect(`/setup?error=${encodeURIComponent(profileError.message)}`);
     }
-    redirect("/join");
+    redirect(role === "parent" ? "/parent" : "/child");
   }
 
-  // Children create a brand-new family space and land as its first member.
+  // Branch 1: parent starting a brand-new family.
   const familyName = `${name}'s family`;
   const { data: space, error: spaceError } = await admin
     .from("family_spaces")
@@ -70,14 +87,12 @@ export async function completeSetup(formData: FormData) {
   const { error: profileError } = await admin.from("profiles").upsert({
     id: user.id,
     display_name: name,
-    role: "child",
-    language_preference: "en",
+    role: "parent",
+    language_preference: "vi",
     family_space_id: space.id,
   });
-
   if (profileError) {
     redirect(`/setup?error=${encodeURIComponent(profileError.message)}`);
   }
-
   redirect(`/setup/invite?code=${encodeURIComponent(space.invite_code)}`);
 }

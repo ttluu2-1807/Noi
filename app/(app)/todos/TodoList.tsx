@@ -16,11 +16,14 @@ export interface TodoRow {
   is_completed: boolean;
   completed_at: string | null;
   created_at: string;
+  created_by: string | null;
 }
 
 interface TodoListProps {
   items: TodoRow[];
   language: Language;
+  /** user_id -> display_name. Used to render "by Mai" on each todo. */
+  memberNames: Record<string, string>;
 }
 
 const T = {
@@ -35,6 +38,7 @@ const T = {
     delete: "Xoá",
     deleted: "Đã xoá",
     undo: "Hoàn tác",
+    by: "bởi",
   },
   en: {
     open: "Open",
@@ -47,6 +51,7 @@ const T = {
     delete: "Delete",
     deleted: "Deleted",
     undo: "Undo",
+    by: "by",
   },
 } as const;
 
@@ -58,7 +63,7 @@ const T = {
  * Optimistic update: checkbox flips immediately, server action runs
  * via transition; if it fails the next router.refresh resets state.
  */
-export function TodoList({ items, language }: TodoListProps) {
+export function TodoList({ items, language, memberNames }: TodoListProps) {
   const t = T[language];
   const [rows, setRows] = useState(items);
   const [, startTransition] = useTransition();
@@ -152,6 +157,7 @@ export function TodoList({ items, language }: TodoListProps) {
                 onToggle={onToggle}
                 onDelete={onDelete}
                 t={t}
+                memberNames={memberNames}
               />
             ))}
           </ul>
@@ -189,6 +195,7 @@ export function TodoList({ items, language }: TodoListProps) {
                   onToggle={onToggle}
                   onDelete={onDelete}
                   t={t}
+                  memberNames={memberNames}
                 />
               ))}
             </ul>
@@ -206,12 +213,14 @@ function TodoItem({
   onToggle,
   onDelete,
   t,
+  memberNames,
 }: {
   row: TodoRow;
   language: Language;
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
   t: (typeof T)[Language];
+  memberNames: Record<string, string>;
 }) {
   const label = language === "vi" ? row.text_vi : row.text_en;
   const assigneeBadge =
@@ -220,6 +229,7 @@ function TodoItem({
       : row.assignee_role === "child"
         ? t.child
         : "";
+  const creatorName = row.created_by ? memberNames[row.created_by] : null;
 
   return (
     <li>
@@ -254,7 +264,10 @@ function TodoItem({
                 {t.due} {relativeTime(row.due_at, language)}
               </span>
             )}
-            <span>{relativeTime(row.created_at, language)}</span>
+            <span>
+              {relativeTime(row.created_at, language)}
+              {creatorName ? ` · ${t.by} ${creatorName}` : ""}
+            </span>
           </div>
         </div>
         <TodoActionsMenu

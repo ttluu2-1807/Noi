@@ -21,7 +21,7 @@ export async function fetchLatestMessagePerThread(
 
   const { data, error } = await supabase
     .from("messages")
-    .select("thread_id, content_vi, content_en, sender_role, attachments, created_at")
+    .select("thread_id, content_vi, content_en, sender_role, sender_id, attachments, created_at")
     .in("thread_id", threadIds)
     .order("created_at", { ascending: false });
 
@@ -36,6 +36,7 @@ export async function fetchLatestMessagePerThread(
       content_vi: row.content_vi as string | null,
       content_en: row.content_en as string | null,
       sender_role: row.sender_role as LatestMessageSummary["sender_role"],
+      sender_id: (row.sender_id ?? null) as string | null,
       has_attachment: attachments.length > 0,
     };
   }
