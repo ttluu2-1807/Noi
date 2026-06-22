@@ -40,14 +40,21 @@ export async function joinFamily(formData: FormData) {
     .eq("id", user.id)
     .maybeSingle();
 
+  // Default role for someone arriving at /join WITHOUT a pre-existing
+  // profile is now 'child' — they're a sibling / additional family
+  // member joining via the new entry on /setup. The original parent
+  // flow (the Vietnamese-speaking elder) goes through /setup picking
+  // "I'm the parent" first, which creates a profile with role=parent,
+  // so when they reach /join the existing role is preserved here.
+  const defaultRole = existing?.role ?? "child";
+
   const { error: upsertError } = await admin.from("profiles").upsert({
     id: user.id,
     family_space_id: space.id,
-    // Preserve existing role if set, else default to 'parent' for this flow.
-    role: existing?.role ?? "parent",
+    role: defaultRole,
     // Display name may already exist from /setup; don't overwrite.
     ...(existing ? {} : { display_name: user.email?.split("@")[0] ?? "Member" }),
-    language_preference: existing?.role === "child" ? "en" : "vi",
+    language_preference: defaultRole === "child" ? "en" : "vi",
   });
 
   if (upsertError) {
@@ -55,5 +62,5 @@ export async function joinFamily(formData: FormData) {
   }
 
   // Route based on the role we just saved.
-  redirect((existing?.role ?? "parent") === "parent" ? "/parent" : "/child");
+  redirect(defaultRole === "parent" ? "/parent" : "/child");
 }

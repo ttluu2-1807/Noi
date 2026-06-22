@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { SubmitButton } from "@/components/SubmitButton";
 import { completeSetup } from "./actions";
 
@@ -80,6 +81,18 @@ export default function SetupPage({
           Continue
         </SubmitButton>
       </form>
+
+      {/* Sibling / additional family member entrypoint. The two radio
+          options above assume you're either the parent or the primary
+          child setting up the family. For anyone else joining an
+          existing family (a sibling, an aunt helping out) the existing
+          /join flow handles it — they just need a way in from here. */}
+      <div className="pt-2 text-center text-sm text-muted">
+        Joining an existing family?{" "}
+        <Link href="/join" className="text-accent hover:underline">
+          Enter a family code
+        </Link>
+      </div>
     </div>
   );
 }
