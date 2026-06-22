@@ -3,7 +3,6 @@ import { createServerClient } from "@/lib/supabase/server";
 import { TrashList, type DeletedThread, type DeletedTodo, type DeletedDiaryEntry } from "./TrashList";
 import type { Language } from "@/lib/language-detect";
 
-export const dynamic = "force-dynamic";
 
 const T = {
   vi: {

@@ -6,7 +6,6 @@ import { tagColors } from "@/lib/tags";
 import { DiaryDetailActions } from "./DiaryDetailActions";
 import type { Language } from "@/lib/language-detect";
 
-export const dynamic = "force-dynamic";
 
 const T = {
   vi: {

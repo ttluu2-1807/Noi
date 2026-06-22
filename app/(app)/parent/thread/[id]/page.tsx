@@ -18,7 +18,6 @@ import {
 } from "@/app/(app)/child/thread/[id]/actions";
 import type { Language } from "@/lib/language-detect";
 
-export const dynamic = "force-dynamic";
 
 const T = {
   vi: {

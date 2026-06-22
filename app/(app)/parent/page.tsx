@@ -5,7 +5,6 @@ import type { ThreadSummary, LatestMessageSummary } from "@/components/ThreadCar
 import { fetchLatestMessagePerThread } from "@/lib/thread-previews";
 import { fetchParentInsights, type ParentInsights } from "@/lib/insights";
 
-export const dynamic = "force-dynamic";
 
 // PERF-5: hard cap on visible threads per tab. Beyond this we'd want
 // proper pagination; in early life-of-family this is rarely hit.

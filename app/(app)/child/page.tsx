@@ -10,7 +10,6 @@ import { QuickAccessRow } from "@/components/QuickAccessRow";
 import { fetchLatestMessagePerThread } from "@/lib/thread-previews";
 import { fetchChildInsights } from "@/lib/insights";
 
-export const dynamic = "force-dynamic";
 
 // PERF-5: cap visible threads per tab. Counts are queried separately so
 // the pill stays accurate even when the family has more than 50 archived.

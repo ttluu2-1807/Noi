@@ -6,7 +6,6 @@ import { DiaryComposer } from "../../DiaryComposer";
 import type { Language } from "@/lib/language-detect";
 import type { Attachment } from "@/lib/storage";
 
-export const dynamic = "force-dynamic";
 
 const T = {
   vi: {

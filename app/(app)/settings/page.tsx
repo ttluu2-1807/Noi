@@ -9,7 +9,6 @@ import {
   updateAutoReadResponses,
 } from "./actions";
 
-export const dynamic = "force-dynamic";
 
 const LABELS = {
   vi: {

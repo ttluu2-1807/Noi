@@ -5,7 +5,6 @@ import { HeaderMenu } from "@/components/HeaderMenu";
 import { DiaryTimeline, type DiaryRow } from "./DiaryTimeline";
 import type { Language } from "@/lib/language-detect";
 
-export const dynamic = "force-dynamic";
 
 const T = {
   vi: {

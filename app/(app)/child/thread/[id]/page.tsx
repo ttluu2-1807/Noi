@@ -13,7 +13,6 @@ import { listFamilyTags } from "@/lib/tags";
 import { ChildComposer } from "./ChildComposer";
 import { setThreadStatus, setThreadTags } from "./actions";
 
-export const dynamic = "force-dynamic";
 
 /**
  * Child thread page — mirror of the parent thread page's Suspense

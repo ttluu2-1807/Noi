@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
 import { OnboardingTour } from "./OnboardingTour";
 
-export const dynamic = "force-dynamic";
 
 export default async function OnboardingPage() {
   const supabase = createServerClient();

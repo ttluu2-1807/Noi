@@ -4,7 +4,6 @@ import { listFamilyTags } from "@/lib/tags";
 import { DiaryComposer } from "../DiaryComposer";
 import type { Language } from "@/lib/language-detect";
 
-export const dynamic = "force-dynamic";
 
 const T = {
   vi: {

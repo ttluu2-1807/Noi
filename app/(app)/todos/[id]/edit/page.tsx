@@ -4,7 +4,6 @@ import { createServerClient } from "@/lib/supabase/server";
 import { TodoEditForm } from "./TodoEditForm";
 import type { Language } from "@/lib/language-detect";
 
-export const dynamic = "force-dynamic";
 
 const T = {
   vi: { title: "Sửa việc cần làm", back: "Quay lại" },

@@ -7,7 +7,6 @@ import { TodoComposer } from "./TodoComposer";
 import { TodoList, type TodoRow } from "./TodoList";
 import type { Language } from "@/lib/language-detect";
 
-export const dynamic = "force-dynamic";
 
 const T = {
   vi: {
