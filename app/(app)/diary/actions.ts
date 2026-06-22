@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
 import { buildDualLanguage } from "@/lib/diary-translate";
+import { extractDiaryEntry, type ExtractedDiaryEntry } from "@/lib/diary-extract";
+import { detectLanguage } from "@/lib/language-detect";
 import type { Attachment } from "@/lib/storage";
 
 /**
@@ -194,6 +196,45 @@ export async function updateDiaryEntry(
   revalidatePath("/diary");
   revalidatePath(`/diary/${input.id}`);
   return { ok: true };
+}
+
+/**
+ * Voice-intelligent extraction. Called by DiaryComposer when the user
+ * uses the mic on the new-entry page. Instead of dumping the transcript
+ * into the body textarea, we run it through Claude to extract structured
+ * fields (kind, title, body, context, event_date, tags). The composer
+ * populates the form with the extracted values for the user to review.
+ *
+ * Failure mode is graceful: returns null on any extraction error and
+ * the composer falls back to dumping the raw transcript into the body
+ * field — same behaviour as before this feature existed.
+ */
+export async function extractDiaryFromVoice(
+  transcript: string,
+): Promise<{ ok: true; extracted: ExtractedDiaryEntry } | { ok: false; error: string }> {
+  const text = transcript.trim();
+  if (!text) return { ok: false, error: "Transcript is empty" };
+
+  // Auth check so unauthenticated callers can't burn our Anthropic quota.
+  const supabase = createServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Unauthorized" };
+
+  const inputLang = detectLanguage(text);
+  try {
+    const extracted = await extractDiaryEntry(
+      text,
+      inputLang,
+      new Date().toISOString(),
+    );
+    if (!extracted) return { ok: false, error: "Could not understand that" };
+    return { ok: true, extracted };
+  } catch (err) {
+    console.error("[diary.extract]", err);
+    return { ok: false, error: "Could not understand that" };
+  }
 }
 
 export async function softDeleteDiaryEntry(

@@ -8,7 +8,12 @@ import { TagSelector } from "@/components/TagSelector";
 import { AttachmentPicker } from "@/components/AttachmentPicker";
 import type { Attachment } from "@/lib/storage";
 import type { Language } from "@/lib/language-detect";
-import { createDiaryEntry, updateDiaryEntry, type DiaryKind } from "./actions";
+import {
+  createDiaryEntry,
+  updateDiaryEntry,
+  extractDiaryFromVoice,
+  type DiaryKind,
+} from "./actions";
 
 interface DiaryComposerProps {
   mode: "new" | "edit";
@@ -126,6 +131,7 @@ export function DiaryComposer({
 
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [extracting, setExtracting] = useState(false);
 
   // Watch kind changes to update the smart defaults — but only when the
   // user hasn't explicitly expanded/collapsed already (track via the
@@ -216,16 +222,64 @@ export function DiaryComposer({
         </div>
       </section>
 
-      {/* Voice dictation fills the body field. */}
+      {/* Voice dictation — routes the transcript through Claude to
+          extract structured fields (kind, title, body, context, date,
+          tags) rather than dumping into the body. On any failure we
+          fall back to the old behaviour so the user never loses their
+          words. */}
       <section className="rounded-card border border-line bg-white p-4 space-y-3">
         <p className="text-xs text-muted">{t.voiceHint}</p>
         <VoiceInput
           language={language}
-          onTranscript={(transcript) => {
-            setBody(transcript);
-            bodyRef.current?.focus();
+          onTranscript={async (transcript) => {
+            const trimmed = transcript.trim();
+            if (!trimmed) return;
+            setExtracting(true);
+            try {
+              const result = await extractDiaryFromVoice(trimmed);
+              if (result.ok) {
+                const e = result.extracted;
+                onKindChange(e.kind);
+                setTitle(e.title);
+                if (e.body) setBody(e.body);
+                if (e.context) {
+                  setContext(e.context);
+                  setContextOpen(true);
+                }
+                if (e.event_date) {
+                  setEventDate(e.event_date);
+                  setDateOpen(true);
+                }
+                if (e.tags.length > 0) {
+                  // Merge into existing tags rather than overwrite, in
+                  // case the user already set some.
+                  setTags((prev) =>
+                    Array.from(new Set([...prev, ...e.tags])),
+                  );
+                }
+              } else {
+                // Extraction failed — keep the words. Drop the
+                // transcript into body so the user still has something
+                // to work with.
+                setBody(trimmed);
+                bodyRef.current?.focus();
+              }
+            } catch {
+              setBody(trimmed);
+              bodyRef.current?.focus();
+            } finally {
+              setExtracting(false);
+            }
           }}
         />
+        {extracting && (
+          <div className="flex items-center gap-2 text-xs text-muted">
+            <LoadingDots />
+            {language === "vi"
+              ? "Đang sắp xếp các trường…"
+              : "Sorting that into fields…"}
+          </div>
+        )}
       </section>
 
       {/* Title */}
