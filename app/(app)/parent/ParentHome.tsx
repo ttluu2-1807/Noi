@@ -13,6 +13,7 @@ import { HeroIllustration } from "@/components/HeroIllustration";
 import { SuggestedQuestions } from "@/components/SuggestedQuestions";
 import { TodayTodosBanner } from "@/components/insights/TodayTodosBanner";
 import { QuickAccessRow } from "@/components/QuickAccessRow";
+import { WeeklyDigestCard } from "@/components/WeeklyDigestCard";
 import { timeOfDayGreeting } from "@/lib/greeting";
 import type { ParentInsights } from "@/lib/insights";
 import type { Attachment } from "@/lib/storage";
@@ -179,6 +180,8 @@ export function ParentHome({
         }}
         activityHref="/parent"
       />
+
+      <WeeklyDigestCard language={language} />
 
       <TodayTodosBanner todos={insights.todayTodos} language={language} />
 

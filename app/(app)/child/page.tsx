@@ -8,6 +8,7 @@ import { StatusTabs } from "@/components/StatusTabs";
 import { ChildInsightsRow } from "@/components/insights/ChildInsightsRow";
 import { QuickAccessRow } from "@/components/QuickAccessRow";
 import { VoiceFAB } from "@/components/VoiceFAB";
+import { WeeklyDigestCard } from "@/components/WeeklyDigestCard";
 import { fetchLatestMessagePerThread } from "@/lib/thread-previews";
 import { fetchFamilyMembers, membersById } from "@/lib/family-members";
 import { fetchChildInsights } from "@/lib/insights";
@@ -191,6 +192,8 @@ export default async function ChildHome({
           }}
           activityHref="/child"
         />
+
+        <WeeklyDigestCard language="en" />
 
         <ChildInsightsRow insights={childInsights} />
 
