@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState, useTransition } from "react";
 import { LoadingDots } from "@/components/LoadingDots";
 import { VoiceInput } from "@/components/VoiceInput";
 import {
@@ -23,8 +23,18 @@ type Stage = "compose" | "preview" | "submitting";
 
 export function NewTaskFlow() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const prefill = searchParams.get("prefill");
   const [stage, setStage] = useState<Stage>("compose");
-  const [task, setTask] = useState("");
+  const [task, setTask] = useState(prefill ?? "");
+
+  // If the user arrived here via the global voice FAB, the transcript
+  // is pre-loaded above. Strip the query so a back-nav doesn't refill
+  // it (and so the URL stays clean for sharing).
+  useEffect(() => {
+    if (prefill) router.replace("/child/new-task");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [preview, setPreview] = useState<TaskPreview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
