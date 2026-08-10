@@ -310,8 +310,38 @@ export function DiaryComposer({
         />
       </section>
 
-      {/* Why / context — collapsed by default for note/event, open for decision */}
-      {contextOpen ? (
+      {/* Optional-field chips — Why (context) and Date. Instead of each
+          collapsed toggle sitting on its own line (where two adjacent
+          text links "collide"), we surface any that are still closed as
+          a chip in a single flex row with gap. Tapping a chip expands
+          that section below and removes the chip from the row. Per the
+          audit: "Flex row with gap. Per screen 09 these become chips." */}
+      {(!contextOpen || !dateOpen) && (
+        <div className="flex flex-wrap items-center gap-2">
+          {!contextOpen && (
+            <button
+              type="button"
+              onClick={() => setContextOpen(true)}
+              className="inline-flex items-center gap-1 rounded-full border border-line bg-surface px-3 py-1.5 text-body-sm text-ink-2 hover:border-green/40 hover:text-green-text transition-colors active:scale-95"
+            >
+              <span aria-hidden className="text-green">+</span>
+              {t.contextExpand}
+            </button>
+          )}
+          {!dateOpen && (
+            <button
+              type="button"
+              onClick={() => setDateOpen(true)}
+              className="inline-flex items-center gap-1 rounded-full border border-line bg-surface px-3 py-1.5 text-body-sm text-ink-2 hover:border-green/40 hover:text-green-text transition-colors active:scale-95"
+            >
+              <span aria-hidden className="text-green">+</span>
+              {t.dateExpand}
+            </button>
+          )}
+        </div>
+      )}
+
+      {contextOpen && (
         <section className="space-y-2">
           <label className="block text-sm text-muted">{t.contextLabel}</label>
           <textarea
@@ -323,18 +353,9 @@ export function DiaryComposer({
             className="w-full rounded-card border border-line bg-white px-4 py-3 leading-relaxed focus:border-accent focus:outline-none resize-none"
           />
         </section>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setContextOpen(true)}
-          className="text-sm text-muted hover:text-ink transition-colors"
-        >
-          {t.contextExpand}
-        </button>
       )}
 
-      {/* Date — collapsed by default for note/decision, open for event */}
-      {dateOpen ? (
+      {dateOpen && (
         <section className="space-y-2">
           <label className="block text-sm text-muted">{t.dateLabel}</label>
           <input
@@ -345,14 +366,6 @@ export function DiaryComposer({
             className="rounded-card border border-line bg-white px-4 py-2 focus:border-accent focus:outline-none"
           />
         </section>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setDateOpen(true)}
-          className="text-sm text-muted hover:text-ink transition-colors"
-        >
-          {t.dateExpand}
-        </button>
       )}
 
       {/* Tags */}
@@ -367,7 +380,9 @@ export function DiaryComposer({
       </section>
 
       {/* Single-photo attachment for now — same picker the parent home + child
-          composer use, sharing the existing storage bucket and upload UX. */}
+          composer use, sharing the existing storage bucket and upload UX.
+          showHint=false because diary photos aren't fed to Noi — keeping the
+          "Noi can read it" line here would be misleading (audit T1). */}
       <section className="space-y-2">
         <label className="block text-sm text-muted">{t.photosLabel}</label>
         <AttachmentPicker
@@ -376,6 +391,7 @@ export function DiaryComposer({
           attachment={singleAttachment}
           onChange={setSingleAttachment}
           disabled={pending}
+          showHint={false}
         />
       </section>
 

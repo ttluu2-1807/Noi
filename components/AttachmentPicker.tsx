@@ -10,6 +10,14 @@ interface AttachmentPickerProps {
   attachment: Attachment | null;
   onChange: (a: Attachment | null) => void;
   disabled?: boolean;
+  /**
+   * Whether to show the "Noi can read it" helper text under the picker.
+   * True (default) on Q&A composers where the image is sent through
+   * vision. False on the diary form — Noi doesn't read diary photos,
+   * so keeping the copy there is misleading (audit T1: duplicated
+   * helper text). Callers on the diary side pass false.
+   */
+  showHint?: boolean;
 }
 
 const T = {
@@ -45,6 +53,7 @@ export function AttachmentPicker({
   attachment,
   onChange,
   disabled,
+  showHint = true,
 }: AttachmentPickerProps) {
   const t = T[language];
   const inputRef = useRef<HTMLInputElement>(null);
@@ -127,7 +136,7 @@ export function AttachmentPicker({
             </svg>
             {t.add}
           </button>
-          <p className="text-xs text-muted/80">{t.hint}</p>
+          {showHint && <p className="text-xs text-muted/80">{t.hint}</p>}
         </div>
       )}
 

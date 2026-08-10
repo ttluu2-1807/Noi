@@ -9,6 +9,7 @@ import { ChildInsightsRow } from "@/components/insights/ChildInsightsRow";
 import { QuickAccessRow } from "@/components/QuickAccessRow";
 import { VoiceFAB } from "@/components/VoiceFAB";
 import { WeeklyDigestCard } from "@/components/WeeklyDigestCard";
+import { FilteredEmptyState } from "@/components/FilteredEmptyState";
 import { fetchLatestMessagePerThread } from "@/lib/thread-previews";
 import { fetchFamilyMembers, membersById } from "@/lib/family-members";
 import { fetchChildInsights } from "@/lib/insights";
@@ -198,13 +199,11 @@ export default async function ChildHome({
         <ChildInsightsRow insights={childInsights} />
 
         {totalThreads === 0 ? (
-          <section className="rounded-card border border-line bg-white p-8 text-center space-y-2">
-            <p className="text-muted">No activity yet.</p>
-            <p className="text-sm text-muted/80">
-              When a parent asks Noi a question, it&apos;ll appear here
-              automatically.
-            </p>
-          </section>
+          <FilteredEmptyState
+            title="No activity in this family yet."
+            hint="When a parent asks Noi a question, it appears here automatically."
+            action={{ label: "New task for a parent", href: "/child/new-task" }}
+          />
         ) : (
           <section className="space-y-3">
             <div className="flex items-center justify-between gap-3">
@@ -242,12 +241,35 @@ export default async function ChildHome({
                   </li>
                 ))}
               </ul>
+            ) : activeStatus === "done" ? (
+              <FilteredEmptyState
+                title="Nothing marked done yet."
+                hint={
+                  openCount > 0
+                    ? `${openCount} open ${openCount === 1 ? "thread" : "threads"} still to look at.`
+                    : undefined
+                }
+                secondaryAction={
+                  openCount > 0
+                    ? { label: "See open threads", href: "/child" }
+                    : undefined
+                }
+              />
             ) : (
-              <p className="rounded-card border border-line bg-white p-6 text-center text-sm text-muted">
-                {activeStatus === "done"
-                  ? "Nothing marked done yet."
-                  : "No open threads."}
-              </p>
+              <FilteredEmptyState
+                title="No open threads right now."
+                hint={
+                  doneCount > 0
+                    ? `${doneCount} ${doneCount === 1 ? "thread" : "threads"} marked done.`
+                    : undefined
+                }
+                action={{ label: "New task for a parent", href: "/child/new-task" }}
+                secondaryAction={
+                  doneCount > 0
+                    ? { label: "See done threads", href: "/child?status=done" }
+                    : undefined
+                }
+              />
             )}
           </section>
         )}

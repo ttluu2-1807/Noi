@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { toggleTodo, deleteTodo, restoreTodo } from "./actions";
 import { Toast } from "@/components/Toast";
 import { TodoActionsMenu } from "@/components/TodoActionsMenu";
+import { FilteredEmptyState } from "@/components/FilteredEmptyState";
 import { relativeTime } from "@/lib/relative-time";
 import type { Language } from "@/lib/language-detect";
 
@@ -132,9 +133,14 @@ export function TodoList({ items, language, memberNames }: TodoListProps) {
   if (rows.length === 0) {
     return (
       <>
-        <section className="rounded-card border border-line bg-white p-8 text-center">
-          <p className="text-sm text-muted">{t.empty}</p>
-        </section>
+        <FilteredEmptyState
+          title={t.empty}
+          hint={
+            language === "vi"
+              ? "Dùng micro ở trên, hoặc gõ một dòng nhanh."
+              : "Use the mic above, or type a quick line."
+          }
+        />
         {undoToast}
       </>
     );

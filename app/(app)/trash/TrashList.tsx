@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { restoreThread } from "@/app/(app)/child/thread/[id]/actions";
 import { restoreTodo } from "@/app/(app)/todos/actions";
 import { restoreDiaryEntry } from "@/app/(app)/diary/actions";
+import { FilteredEmptyState } from "@/components/FilteredEmptyState";
 import { relativeTime } from "@/lib/relative-time";
 import type { Language } from "@/lib/language-detect";
 
@@ -71,9 +72,14 @@ export function TrashList({ threads, todos, diary, language }: TrashListProps) {
     localThreads.length + localTodos.length + localDiary.length;
   if (total === 0) {
     return (
-      <section className="rounded-card border border-line bg-white p-8 text-center">
-        <p className="text-sm text-muted">{t.empty}</p>
-      </section>
+      <FilteredEmptyState
+        title={t.empty}
+        hint={
+          language === "vi"
+            ? "Mọi thứ đã xoá sẽ ở đây trong 30 ngày."
+            : "Deleted items stay here for 30 days."
+        }
+      />
     );
   }
 

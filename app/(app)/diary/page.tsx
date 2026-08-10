@@ -3,6 +3,7 @@ import { createServerClient } from "@/lib/supabase/server";
 import { RealtimeBoundary } from "@/components/RealtimeBoundary";
 import { HeaderMenu } from "@/components/HeaderMenu";
 import { DiaryTimeline, type DiaryRow } from "./DiaryTimeline";
+import { FilteredEmptyState } from "@/components/FilteredEmptyState";
 import type { Language } from "@/lib/language-detect";
 
 
@@ -13,8 +14,14 @@ const T = {
       "Sự kiện, quyết định, và những điều cần nhớ — để sau này không lặp lại sai lầm.",
     back: "Trang chủ",
     add: "Thêm mục",
-    empty:
-      "Chưa có mục nhật ký nào. Hãy thêm một sự kiện hoặc quyết định để bắt đầu.",
+    emptyAll: "Chưa có mục nhật ký nào.",
+    emptyAllHint: "Thêm một sự kiện, quyết định hoặc ghi chú để bắt đầu.",
+    emptyEvent: "Chưa có sự kiện nào được ghi lại.",
+    emptyDecision: "Chưa có quyết định nào được ghi lại.",
+    emptyNote: "Chưa có ghi chú nào.",
+    emptyOtherHint: (n: number) => `Có ${n} mục ở bộ lọc khác.`,
+    emptyOtherLink: "Xem tất cả",
+    addEntry: "Thêm mục mới",
   },
   en: {
     title: "Family diary",
@@ -22,8 +29,15 @@ const T = {
       "Events, decisions, and things worth remembering — so future-you doesn't repeat the same mistakes.",
     back: "Home",
     add: "Add entry",
-    empty:
-      "No entries yet. Add an event or decision to start the family memory.",
+    emptyAll: "The family diary is empty.",
+    emptyAllHint: "Add an event, decision, or note to start the family memory.",
+    emptyEvent: "No events logged yet.",
+    emptyDecision: "No decisions logged yet.",
+    emptyNote: "No notes yet.",
+    emptyOtherHint: (n: number) =>
+      `${n} ${n === 1 ? "entry" : "entries"} in other filters.`,
+    emptyOtherLink: "See all",
+    addEntry: "Add a new entry",
   },
 } as const;
 
@@ -156,9 +170,30 @@ export default async function DiaryPage({
         </div>
 
         {rows.length === 0 ? (
-          <section className="rounded-card border border-line bg-white p-8 text-center">
-            <p className="text-sm text-muted">{t.empty}</p>
-          </section>
+          <FilteredEmptyState
+            title={
+              activeKind === "event"
+                ? t.emptyEvent
+                : activeKind === "decision"
+                  ? t.emptyDecision
+                  : activeKind === "note"
+                    ? t.emptyNote
+                    : t.emptyAll
+            }
+            hint={
+              activeKind
+                ? counts.all - counts[activeKind] > 0
+                  ? t.emptyOtherHint(counts.all - counts[activeKind])
+                  : t.emptyAllHint
+                : t.emptyAllHint
+            }
+            action={{ label: t.addEntry, href: "/diary/new" }}
+            secondaryAction={
+              activeKind && counts.all - counts[activeKind] > 0
+                ? { label: t.emptyOtherLink, href: "/diary" }
+                : undefined
+            }
+          />
         ) : (
           <DiaryTimeline rows={rows} language={language} />
         )}

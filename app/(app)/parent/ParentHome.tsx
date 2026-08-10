@@ -14,6 +14,7 @@ import { SuggestedQuestions } from "@/components/SuggestedQuestions";
 import { TodayTodosBanner } from "@/components/insights/TodayTodosBanner";
 import { QuickAccessRow } from "@/components/QuickAccessRow";
 import { WeeklyDigestCard } from "@/components/WeeklyDigestCard";
+import { FilteredEmptyState } from "@/components/FilteredEmptyState";
 import { timeOfDayGreeting } from "@/lib/greeting";
 import type { ParentInsights } from "@/lib/insights";
 import type { Attachment } from "@/lib/storage";
@@ -285,16 +286,52 @@ export function ParentHome({
                 </li>
               ))}
             </ul>
-          ) : (
-            <p className="rounded-card border border-line bg-white p-6 text-center text-sm text-muted">
-              {activeStatus === "done"
-                ? language === "vi"
+          ) : activeStatus === "done" ? (
+            <FilteredEmptyState
+              title={
+                language === "vi"
                   ? "Chưa có câu hỏi nào được đánh dấu đã xong."
                   : "Nothing marked done yet."
-                : language === "vi"
+              }
+              hint={
+                openCount > 0
+                  ? language === "vi"
+                    ? `${openCount} câu hỏi còn đang mở.`
+                    : `${openCount} still open.`
+                  : undefined
+              }
+              secondaryAction={
+                openCount > 0
+                  ? {
+                      label: language === "vi" ? "Xem câu hỏi đang mở" : "See open",
+                      href: "/parent",
+                    }
+                  : undefined
+              }
+            />
+          ) : (
+            <FilteredEmptyState
+              title={
+                language === "vi"
                   ? "Không có câu hỏi nào đang mở."
-                  : "No open questions."}
-            </p>
+                  : "No open questions."
+              }
+              hint={
+                doneCount > 0
+                  ? language === "vi"
+                    ? `${doneCount} câu hỏi đã xong.`
+                    : `${doneCount} marked done.`
+                  : undefined
+              }
+              secondaryAction={
+                doneCount > 0
+                  ? {
+                      label: language === "vi" ? "Xem đã xong" : "See done",
+                      href: "/parent?status=done",
+                    }
+                  : undefined
+              }
+            />
           )}
         </section>
       )}
