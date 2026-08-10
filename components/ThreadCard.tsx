@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Language } from "@/lib/language-detect";
 import { relativeTime } from "@/lib/relative-time";
 import { tagColors } from "@/lib/tags";
+import { stripMarkdown, truncateOnWord } from "@/lib/markdown";
 
 export interface ThreadSummary {
   id: string;
@@ -89,9 +90,10 @@ export function ThreadCard({
     (language === "vi"
       ? latestMessage?.content_vi
       : latestMessage?.content_en) ?? "";
-  const preview = previewRaw.replace(/\s+/g, " ").trim();
-  const previewTruncated =
-    preview.length > PREVIEW_MAX ? preview.slice(0, PREVIEW_MAX).trim() + "…" : preview;
+  // Assistant messages may contain markdown (**, ##, - bullets). Strip
+  // it so the card shows readable prose, not syntax markers.
+  const preview = stripMarkdown(previewRaw);
+  const previewTruncated = truncateOnWord(preview, PREVIEW_MAX);
 
   // Prefer the actual sender's name if we have it — falls back to a
   // generic role label ("Parent", "Bạn", "Noi") otherwise. Showing

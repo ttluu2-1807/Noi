@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { LoadingDots } from "@/components/LoadingDots";
 import { VoiceInput } from "@/components/VoiceInput";
+import { MarkdownContent } from "@/components/MarkdownContent";
 import {
   generateTaskPreview,
   refineTaskPreview,
@@ -197,8 +198,8 @@ export function NewTaskFlow() {
               <summary className="cursor-pointer text-muted hover:text-ink">
                 See in English
               </summary>
-              <div className="mt-3 whitespace-pre-wrap leading-relaxed border-t border-line pt-3 text-muted">
-                {preview.responseEn}
+              <div className="mt-3 border-t border-line pt-3 text-muted">
+                <MarkdownContent>{preview.responseEn}</MarkdownContent>
               </div>
             </details>
           </section>

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { LoadingDots } from "./LoadingDots";
-import { renderTextWithLinks } from "@/lib/render-text";
+import { MarkdownContent } from "@/components/MarkdownContent";
 import type { Language } from "@/lib/language-detect";
 import type { Attachment } from "@/lib/storage";
 
@@ -135,9 +135,10 @@ export function StreamingResponse({
   return (
     <div className="space-y-3">
       {text ? (
-        <div className="whitespace-pre-wrap leading-relaxed">
-          {renderTextWithLinks(text)}
-        </div>
+        // Stream tokens are Claude markdown — render live through the
+        // markdown component so headings + lists + bold appear as
+        // structure while they stream, not raw ** and ## characters.
+        <MarkdownContent>{text}</MarkdownContent>
       ) : (
         <LoadingDots />
       )}

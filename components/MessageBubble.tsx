@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { Language } from "@/lib/language-detect";
 import { isTTSSupported, hasVoiceFor, speak, stopSpeaking } from "@/lib/tts";
 import { renderTextWithLinks } from "@/lib/render-text";
+import { MarkdownContent } from "@/components/MarkdownContent";
 import { getAttachmentSignedUrl, type Attachment } from "@/lib/storage";
 
 export interface MessageRow {
@@ -152,13 +153,22 @@ export function MessageBubble({
       )}
       {content.trim().length > 0 && (
         <div
-          className={`rounded-bubble p-4 leading-relaxed whitespace-pre-wrap ${
+          className={`rounded-bubble p-4 ${
             isAssistant
-              ? "bg-white border border-line"
-              : "bg-accent/10 text-ink"
+              ? "bg-surface border border-line"
+              : "bg-clay-wash text-ink whitespace-pre-wrap leading-relaxed"
           }`}
         >
-          {renderTextWithLinks(content)}
+          {/* Assistant messages come from Claude and can include markdown
+              (headings, ordered lists, bold, links). Render them through
+              MarkdownContent so the syntax markers become real elements.
+              Family messages are user-typed prose — keep them plain-text
+              with auto-linking for phones + AU domains. */}
+          {isAssistant ? (
+            <MarkdownContent>{content}</MarkdownContent>
+          ) : (
+            renderTextWithLinks(content)
+          )}
         </div>
       )}
       <div className="flex items-center gap-3 text-xs text-muted">
