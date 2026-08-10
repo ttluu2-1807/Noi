@@ -10,9 +10,12 @@
   }
 
   body {
-    background-color: theme("colors.bg");
+    background-color: theme("colors.paper");
     color: theme("colors.ink");
     font-family: theme("fontFamily.sans");
+    /* Respect iOS home indicator + notch on the outer body — pages that
+       manage their own safe areas can override via padding utilities. */
+    min-height: 100dvh;
   }
 
   /* Parent view gets a larger base size for legibility. Applied via
@@ -25,10 +28,45 @@
     font-size: 16px;
   }
 
-  /* Remove default focus ring; add our own accent-colored one */
+  /* Focus ring uses the same green as primary actions. */
   :focus-visible {
-    outline: 2px solid theme("colors.accent");
+    outline: 2px solid theme("colors.green");
     outline-offset: 2px;
     border-radius: 4px;
+  }
+
+  /* Reduced motion: honour the OS preference. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer utilities {
+  /* iOS safe-area padding utilities.
+     Use e.g. `pt-safe` on a fixed top bar or `pb-safe` on a bottom nav so
+     content stays clear of the status bar / home indicator. Composes with
+     regular padding: `pt-4 pt-safe` puts 1rem *plus* the inset on top. */
+  .pt-safe {
+    padding-top: max(env(safe-area-inset-top), 0px);
+  }
+  .pb-safe {
+    padding-bottom: max(env(safe-area-inset-bottom), 0px);
+  }
+  .pl-safe {
+    padding-left: max(env(safe-area-inset-left), 0px);
+  }
+  .pr-safe {
+    padding-right: max(env(safe-area-inset-right), 0px);
+  }
+  /* Common combo: a bottom-fixed bar wants both bottom + horizontal insets. */
+  .px-safe {
+    padding-left: max(env(safe-area-inset-left), 0px);
+    padding-right: max(env(safe-area-inset-right), 0px);
   }
 }
