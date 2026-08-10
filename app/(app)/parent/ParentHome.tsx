@@ -105,7 +105,7 @@ export function ParentHome({
       <main className="mx-auto max-w-md px-6 py-10 space-y-8">
         <header>
           <h1 className="text-2xl font-medium">{t.questionHeading}</h1>
-          <p className="mt-2 rounded-bubble bg-accent/10 p-4">{query}</p>
+          <p className="mt-2 rounded-bubble bg-clay-wash p-4">{query}</p>
         </header>
         <section>
           <StreamingResponse
@@ -219,7 +219,7 @@ export function ParentHome({
           <button
             type="submit"
             disabled={!textInput.trim() && !attachment}
-            className="w-full rounded-card bg-accent px-4 py-3 font-medium text-white disabled:opacity-40 hover:opacity-90 transition-transform active:scale-[0.98]"
+            className="btn-primary w-full rounded-card px-4 py-3 active:scale-[0.98]"
           >
             {t.send}
           </button>

@@ -118,15 +118,15 @@ export function WeeklyDigestCard({ language }: { language: Language }) {
     phase.kind === "generating";
 
   return (
-    <section className="rounded-card border border-line bg-gradient-to-br from-accent/5 to-white p-5 space-y-3 animate-fade-rise">
+    <section className="rounded-card border border-line bg-gradient-to-br from-green-wash to-surface p-5 space-y-3 animate-fade-rise">
       <div className="flex items-start gap-3">
-        <div className="shrink-0 mt-0.5 h-10 w-10 rounded-full bg-accent/10 flex items-center justify-center">
+        <div className="shrink-0 mt-0.5 h-10 w-10 rounded-full bg-green-wash flex items-center justify-center">
           <svg
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
             strokeWidth={1.8}
-            className="h-5 w-5 text-accent"
+            className="h-5 w-5 text-green-text"
           >
             <path
               strokeLinecap="round"
@@ -146,7 +146,7 @@ export function WeeklyDigestCard({ language }: { language: Language }) {
           type="button"
           onClick={onPlay}
           disabled={isBusy}
-          className="inline-flex items-center gap-2 rounded-card bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 transition-transform active:scale-[0.98]"
+          className="btn-primary inline-flex items-center gap-2 rounded-card px-4 py-2 text-sm active:scale-[0.98]"
         >
           {isPlayingOrLoading ? (
             <span className="inline-block h-2 w-2 rounded-full bg-white animate-pulse" />

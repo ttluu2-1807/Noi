@@ -47,7 +47,7 @@ export default function SetupPage({
             Are you a parent, or a family member helping out?
           </legend>
 
-          <label className="block cursor-pointer rounded-card border border-line bg-white p-5 transition-colors has-[:checked]:border-accent has-[:checked]:bg-accent/5">
+          <label className="block cursor-pointer rounded-card border border-line bg-white p-5 transition-colors has-[:checked]:border-green has-[:checked]:bg-green-wash">
             <div className="flex items-start gap-4">
               <input
                 type="radio"
@@ -67,7 +67,7 @@ export default function SetupPage({
             </div>
           </label>
 
-          <label className="block cursor-pointer rounded-card border border-line bg-white p-5 transition-colors has-[:checked]:border-accent has-[:checked]:bg-accent/5">
+          <label className="block cursor-pointer rounded-card border border-line bg-white p-5 transition-colors has-[:checked]:border-green has-[:checked]:bg-green-wash">
             <div className="flex items-start gap-4">
               <input
                 type="radio"
@@ -95,7 +95,7 @@ export default function SetupPage({
                 : "Are you the first one setting up, or joining a family that exists?"}
             </legend>
 
-            <label className="block cursor-pointer rounded-card border border-line bg-white p-4 transition-colors has-[:checked]:border-accent has-[:checked]:bg-accent/5">
+            <label className="block cursor-pointer rounded-card border border-line bg-white p-4 transition-colors has-[:checked]:border-green has-[:checked]:bg-green-wash">
               <div className="flex items-start gap-4">
                 <input
                   type="radio"
@@ -114,7 +114,7 @@ export default function SetupPage({
               </div>
             </label>
 
-            <label className="block cursor-pointer rounded-card border border-line bg-white p-4 transition-colors has-[:checked]:border-accent has-[:checked]:bg-accent/5">
+            <label className="block cursor-pointer rounded-card border border-line bg-white p-4 transition-colors has-[:checked]:border-green has-[:checked]:bg-green-wash">
               <div className="flex items-start gap-4">
                 <input
                   type="radio"
@@ -157,7 +157,7 @@ export default function SetupPage({
 
         <SubmitButton
           pendingLabel="Setting up…"
-          className="w-full rounded-card bg-accent px-4 py-3 font-medium text-white hover:opacity-90 disabled:opacity-40"
+          className="btn-primary w-full rounded-card px-4 py-3"
         >
           Continue
         </SubmitButton>

@@ -35,7 +35,7 @@ export function FollowUpInput({ threadId, language, familySpaceId }: FollowUpInp
   if (query) {
     return (
       <section className="rounded-card border border-line bg-white p-5 space-y-3">
-        <div className="rounded-bubble bg-accent/10 p-4">{query}</div>
+        <div className="rounded-bubble bg-clay-wash p-4">{query}</div>
         <StreamingResponse
           query={query}
           threadId={threadId}
@@ -99,7 +99,7 @@ export function FollowUpInput({ threadId, language, familySpaceId }: FollowUpInp
         <button
           type="submit"
           disabled={!textInput.trim() && !attachment}
-          className="w-full rounded-card bg-accent px-4 py-3 font-medium text-white disabled:opacity-40 hover:opacity-90 transition-opacity"
+          className="btn-primary w-full rounded-card px-4 py-3"
         >
           {t.send}
         </button>

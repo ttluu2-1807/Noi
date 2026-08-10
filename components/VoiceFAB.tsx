@@ -136,7 +136,14 @@ export function VoiceFAB({ language = "en" }: { language?: Language }) {
         type="button"
         onClick={onOpen}
         aria-label={t.fab}
-        className="fixed bottom-6 right-6 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-lg shadow-accent/30 hover:opacity-90 active:scale-95 transition-transform"
+        // Anchor above the home indicator on iOS. Base offset is 24px,
+        // pushed further by env(safe-area-inset-bottom) via our style
+        // helper so the button never sits under the pill.
+        style={{
+          bottom: "calc(env(safe-area-inset-bottom) + 24px)",
+          right: "calc(env(safe-area-inset-right) + 24px)",
+        }}
+        className="fixed z-30 flex h-mic-fab w-mic-fab items-center justify-center rounded-full bg-green text-white shadow-lg shadow-green/30 hover:opacity-90 active:scale-95 transition-transform"
       >
         <svg
           viewBox="0 0 24 24"
@@ -165,7 +172,15 @@ export function VoiceFAB({ language = "en" }: { language?: Language }) {
             if (e.target === e.currentTarget) onCancel();
           }}
         >
-          <div className="w-full sm:max-w-md rounded-t-card sm:rounded-card bg-white p-6 space-y-5 shadow-2xl animate-fade-rise">
+          <div
+            // Bottom sheet on phones: clear the home indicator via
+            // safe-area-inset-bottom. rounded-t-sheet-top matches the
+            // v1 26px sheet radius spec.
+            style={{
+              paddingBottom: "calc(env(safe-area-inset-bottom) + 24px)",
+            }}
+            className="w-full sm:max-w-md rounded-t-sheet-top sm:rounded-card bg-surface p-6 pt-6 space-y-5 shadow-2xl animate-fade-rise"
+          >
             {stage.kind === "listening" && (
               <>
                 <div className="text-center space-y-1">

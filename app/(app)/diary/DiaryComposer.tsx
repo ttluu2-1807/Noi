@@ -400,7 +400,7 @@ export function DiaryComposer({
             type="button"
             onClick={onSave}
             disabled={pending || !title.trim()}
-            className="rounded-card bg-accent px-5 py-3 font-medium text-white disabled:opacity-40 hover:opacity-90 transition-transform active:scale-[0.98]"
+            className="btn-primary rounded-card px-5 py-3 active:scale-[0.98]"
           >
             {pending ? t.translating : t.save}
           </button>

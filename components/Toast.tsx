@@ -50,7 +50,10 @@ export function Toast({
     <div
       role="status"
       aria-live="polite"
-      className={`fixed left-1/2 -translate-x-1/2 bottom-6 z-50 ${
+      // Bottom offset composed of a 24px base + safe-area-inset-bottom
+      // so the toast never sits under the iOS home indicator.
+      style={{ bottom: "calc(env(safe-area-inset-bottom) + 24px)" }}
+      className={`fixed left-1/2 -translate-x-1/2 z-50 ${
         leaving ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0"
       } transition-all duration-200`}
     >

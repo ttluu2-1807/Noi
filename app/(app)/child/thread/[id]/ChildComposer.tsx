@@ -47,10 +47,10 @@ export function ChildComposer({ threadId, familySpaceId }: ChildComposerProps) {
     return (
       <section className="rounded-card border border-line bg-white p-5 space-y-4">
         <div className="flex items-center gap-2 text-xs text-muted uppercase tracking-wide">
-          <span className="rounded-full bg-accent/10 text-accent px-2 py-0.5">Ask Noi</span>
+          <span className="rounded-full bg-green-wash text-green-text px-2 py-0.5">Ask Noi</span>
           Updating with your context…
         </div>
-        <div className="rounded-bubble bg-accent/10 p-3 text-sm">{askingNoi}</div>
+        <div className="rounded-bubble bg-green-wash p-3 text-sm">{askingNoi}</div>
         <StreamingResponse
           query={askingNoi}
           threadId={threadId}
@@ -168,7 +168,7 @@ export function ChildComposer({ threadId, familySpaceId }: ChildComposerProps) {
           type="button"
           onClick={onSend}
           disabled={pendingReply || (!text.trim() && !attachment)}
-          className="rounded-card bg-accent px-5 py-2 text-sm font-medium text-white disabled:opacity-40 hover:opacity-90 transition-opacity"
+          className="btn-primary rounded-card px-5 py-2 text-sm"
         >
           {pendingReply
             ? "Translating…"

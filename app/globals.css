@@ -2,6 +2,35 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer components {
+  /*
+   * Primary CTA. Full green, white text, distinct disabled treatment
+   * (soft warm gray on paper, muted ink) so a disabled button reads as
+   * non-interactive at a glance — not as a slightly-faded live button.
+   *
+   * Callers add their own sizing (padding, width, radius) — this
+   * class carries only the colour + interaction contract:
+   *   <button className="btn-primary rounded-card px-4 py-3 w-full">
+   *     Send
+   *   </button>
+   */
+  .btn-primary {
+    @apply bg-green text-white font-medium
+           transition-transform active:scale-[0.98] hover:opacity-90
+           disabled:bg-line disabled:text-ink-3
+           disabled:cursor-not-allowed disabled:hover:opacity-100
+           disabled:active:scale-100;
+  }
+  /* Secondary CTA — outlined, paper background. Same disabled floor. */
+  .btn-secondary {
+    @apply bg-surface text-ink border border-line font-medium
+           transition-transform active:scale-[0.98]
+           hover:border-green/40 hover:text-green-text
+           disabled:text-ink-3 disabled:cursor-not-allowed
+           disabled:hover:border-line disabled:active:scale-100;
+  }
+}
+
 @layer base {
   html {
     -webkit-font-smoothing: antialiased;

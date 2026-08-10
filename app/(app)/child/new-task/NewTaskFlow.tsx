@@ -159,7 +159,7 @@ export function NewTaskFlow() {
               type="button"
               onClick={onPreview}
               disabled={pending || !task.trim()}
-              className="rounded-card bg-accent px-4 py-3 font-medium text-white disabled:opacity-40 hover:opacity-90 transition-opacity"
+              className="btn-primary rounded-card px-4 py-3"
             >
               {pending ? "Generating…" : "Preview translation"}
             </button>
@@ -259,7 +259,7 @@ export function NewTaskFlow() {
                 type="button"
                 onClick={() => onRefine(refineInput)}
                 disabled={pending || !refineInput.trim()}
-                className="rounded-card bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-40 hover:opacity-90 transition-transform active:scale-[0.98]"
+                className="btn-primary rounded-card px-4 py-2 text-sm active:scale-[0.98]"
               >
                 Refine
               </button>
@@ -291,7 +291,7 @@ export function NewTaskFlow() {
               type="button"
               onClick={onSubmit}
               disabled={pending}
-              className="rounded-card bg-accent px-5 py-3 font-medium text-white disabled:opacity-40 hover:opacity-90 transition-transform active:scale-[0.98]"
+              className="btn-primary rounded-card px-5 py-3 active:scale-[0.98]"
             >
               {pending ? "Sending…" : "Send to parent"}
             </button>
