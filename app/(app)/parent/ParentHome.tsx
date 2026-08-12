@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { VoiceInput } from "@/components/VoiceInput";
 import { StreamingResponse } from "@/components/StreamingResponse";
-import { AttachmentPicker } from "@/components/AttachmentPicker";
+import { PhotographLetter } from "@/components/PhotographLetter";
 import { HeaderMenu } from "@/components/HeaderMenu";
 import { HeroIllustration } from "@/components/HeroIllustration";
 import { SuggestedQuestions } from "@/components/SuggestedQuestions";
@@ -34,15 +34,20 @@ const T = {
     placeholder: "Hoặc gõ câu hỏi ở đây...",
     send: "Gửi",
     questionHeading: "Câu hỏi",
-    imageFallback:
-      "Quý vị có thể giải thích giúp tôi nội dung trong hình ảnh này không?",
+    // Letter-mode fallback — used when a photo is attached with no
+    // text. Steers Claude into the answer anatomy focused on the
+    // letter: what/why/what-to-do/by-when, with a trailing
+    // "Add to your list" section for concrete tasks.
+    letterFallback:
+      "Đây là thư hay giấy tờ tôi vừa nhận. Xin đọc giúp và cho biết: Đây là gì? Tại sao tôi nhận nó? Tôi cần làm gì và trước ngày nào? Nếu có việc cần làm, xin thêm vào danh sách.",
   },
   en: {
     prompt: "What would you like to ask today?",
     placeholder: "Or type your question here…",
     send: "Send",
     questionHeading: "Question",
-    imageFallback: "Could you explain what's in this image for me?",
+    letterFallback:
+      "This is a letter or notice I just received. Please read it and tell me: what is it, why did I receive it, what do I need to do, and by when? If there are action items, add them to my list.",
   },
 } as const;
 
@@ -114,7 +119,11 @@ export function ParentHome({
     const trimmed = text.trim();
     if (!trimmed && !attachment) return;
     setPendingAttachment(attachment);
-    setQuery(trimmed || t.imageFallback);
+    // Photo-only submissions use the letter-mode prompt so Claude
+    // returns the anatomy focused on the letter: what it is, why they
+    // received it, what to do, by when. Add-to-list chips fall out
+    // for free when Claude appends the trailing section.
+    setQuery(trimmed || t.letterFallback);
     setAttachment(null);
   };
 
@@ -170,7 +179,7 @@ export function ParentHome({
               className="w-full rounded-card border border-line bg-surface px-4 py-3 leading-relaxed text-body focus:border-green focus:outline-none resize-none"
             />
           </label>
-          <AttachmentPicker
+          <PhotographLetter
             familySpaceId={familySpaceId}
             language={language}
             attachment={attachment}
