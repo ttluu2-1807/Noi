@@ -40,7 +40,7 @@ export default function VerifyPage({
         </div>
         <h1 className="text-display font-medium">Check your email</h1>
         <p className="text-ink-3">
-          We sent a 6-digit code to{" "}
+          We sent a code to{" "}
           <span className="text-ink font-medium">{email || "your email"}</span>.
         </p>
       </div>
@@ -51,7 +51,9 @@ export default function VerifyPage({
           <label className="block text-label uppercase tracking-wide text-ink-3 text-center">
             Enter the code
           </label>
-          <CodeInput name="code" />
+          {/* OTP length matches the Supabase project setting (Auth →
+              Providers → Email → OTP Length). This project is 8. */}
+          <CodeInput name="code" length={8} />
         </div>
 
         {searchParams.error && (

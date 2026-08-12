@@ -49,14 +49,18 @@ export async function verifyOtpCode(formData: FormData) {
   if (!email || !token) {
     redirect(
       `/verify?email=${encodeURIComponent(email)}&error=${encodeURIComponent(
-        "Please enter the 6-digit code from the email.",
+        "Please enter the code from the email.",
       )}`,
     );
   }
-  if (token.length !== 6 || !/^\d{6}$/.test(token)) {
+  // Accept any 4–10 digit numeric code. Supabase's default OTP length
+  // is 6, but the project can be configured to 8 (Auth → Providers →
+  // Email → OTP Length). We stay flexible so a config change doesn't
+  // silently break sign-in.
+  if (!/^\d{4,10}$/.test(token)) {
     redirect(
       `/verify?email=${encodeURIComponent(email)}&error=${encodeURIComponent(
-        "The code should be 6 digits.",
+        "That doesn't look like a valid code.",
       )}`,
     );
   }
