@@ -16,8 +16,11 @@ interface QuickAccessRowProps {
     todos?: string;
     diary?: string;
   };
-  /** Where Activity links — different for parent (/parent) vs child (/child). */
-  activityHref?: "/parent" | "/child";
+  /**
+   * Deprecated — tile now always links to /threads (the unified list
+   * page). Kept as an optional prop to avoid churning callers; ignored.
+   */
+  activityHref?: string;
 }
 
 const T = {
@@ -51,14 +54,15 @@ export function QuickAccessRow({
   language,
   counts,
   hints,
-  activityHref = "/parent",
 }: QuickAccessRowProps) {
   const t = T[language];
 
   return (
     <div className="grid grid-cols-3 gap-2">
       <Tile
-        href={activityHref}
+        // Always the unified /threads list — regardless of role. Home
+        // no longer carries the list (audit T2); tile is the way in.
+        href="/threads"
         icon={<ChatIcon className="h-5 w-5" />}
         label={t.threads}
         count={counts.threads}

@@ -144,6 +144,13 @@ export function MessageBubble({
       onEnd: () => setSpeaking(false),
       onError: () => setSpeaking(false),
     });
+    // Cleanup: when the component unmounts (route change, list virtualization),
+    // kill playback so audio doesn't keep going after the user has navigated
+    // away. stopSpeaking is a global singleton kill; safe to call even if
+    // this specific message isn't the current speaker.
+    return () => {
+      stopSpeaking();
+    };
     // Only re-trigger if the message id or the autoRead prop changes —
     // don't restart on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps

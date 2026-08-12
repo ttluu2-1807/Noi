@@ -3,7 +3,7 @@ import type { Language } from "@/lib/language-detect";
 
 interface StatusTabsProps {
   /** Base path (e.g. /child or /parent). Tabs append ?status=. */
-  basePath: "/child" | "/parent";
+  basePath: "/child" | "/parent" | "/threads";
   active: "open" | "done";
   language: Language;
   openCount: number;

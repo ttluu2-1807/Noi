@@ -211,7 +211,24 @@ function fallbackBrowserTTS(text: string, options: SpeakOptions): void {
   const match =
     voices.find((v) => v.lang === LANG_CODE[options.lang]) ??
     voices.find((v) => v.lang.startsWith(options.lang));
-  if (match) utter.voice = match;
+
+  // Critical guard: if the browser has NO voice for the requested
+  // language, DO NOT speak. Without this, SpeechSynthesis picks its
+  // default voice (usually en-US on iOS Safari where a Vietnamese
+  // voice is rarely installed) and reads the foreign-language text
+  // phonetically — which sounds like nonsense. Better silent + an
+  // error than misreading.
+  if (!match) {
+    console.warn(
+      `[tts] no browser voice for ${options.lang}; refusing to misread`,
+    );
+    options.onError?.(
+      new Error(`No ${options.lang === "vi" ? "Vietnamese" : "English"} voice available`),
+    );
+    options.onEnd?.();
+    return;
+  }
+  utter.voice = match;
 
   if (options.onEnd) utter.onend = options.onEnd;
   if (options.onError) {

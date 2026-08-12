@@ -73,6 +73,19 @@ export async function classifyVoiceIntent(
       `"How do I renew Mum's Medicare card?", "Tại sao tiền điện cao thế?".\n\n` +
       `When ambiguous, prefer todo over diary over thread (action-first). ` +
       `A diary "event" with a date in the past stays as diary, not todo.\n\n` +
+      `**Australian institution exception**: if an imperative phrasing ` +
+      `mentions a specific Australian government/service by name — ` +
+      `Centrelink, Medicare, ATO, myGov, MyID, Services Australia, NDIS, ` +
+      `Australia Post, Medibank, or references specific IDs like "CRN", ` +
+      `"TFN", "Medicare number", "linking code" — treat it as "thread" ` +
+      `not "todo", because the user almost always needs guidance on HOW ` +
+      `to do it, not a bare reminder. Examples that flip to thread:\n` +
+      `  - "Get a Centrelink CRN and linking code" → thread\n` +
+      `  - "Renew Medicare card" (bare) → thread\n` +
+      `  - "Renew Medicare card by 15 Aug" (bare + date) → todo with due\n` +
+      `  - "Link my ATO to myGov" → thread\n` +
+      `Rule of thumb: date/deadline mentioned → todo; institution name ` +
+      `without a specific date → thread (they need the how, not the when).\n\n` +
       `Return strict JSON only, no prose, no code fences. Discriminated by ` +
       `the "kind" field:\n\n` +
       `For "todo":\n` +
