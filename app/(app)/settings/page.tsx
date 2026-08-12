@@ -3,6 +3,8 @@ import { createServerClient } from "@/lib/supabase/server";
 import { signOut } from "@/app/(app)/actions";
 import { SubmitButton } from "@/components/SubmitButton";
 import { CopyableCode } from "./CopyableCode";
+import { PushSubscribe } from "./PushSubscribe";
+import { hasPushSubscription } from "./push-actions";
 import {
   updateDisplayName,
   updateLanguagePreference,
@@ -75,6 +77,8 @@ export default async function SettingsPage() {
   const lang = (profile?.language_preference ?? "vi") as "vi" | "en";
   const t = LABELS[lang];
   const backHref = profile?.role === "parent" ? "/parent" : "/child";
+  const initiallySubscribed = await hasPushSubscription();
+  const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? null;
 
   return (
     <main className="mx-auto max-w-md px-6 py-10 space-y-8">
@@ -163,6 +167,12 @@ export default async function SettingsPage() {
           <CopyableCode code={family.invite_code} />
         </section>
       )}
+
+      <PushSubscribe
+        language={lang}
+        vapidPublicKey={vapidPublicKey}
+        initiallySubscribed={initiallySubscribed}
+      />
 
       <form action={signOut} className="pt-2">
         <button

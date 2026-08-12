@@ -17,6 +17,14 @@ export const metadata: Metadata = {
   title: "Noi",
   description:
     "Nối — a bilingual life admin assistant for Vietnamese-speaking families in Australia.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    title: "Noi",
+    // Standalone display mode — the address bar hides when launched from
+    // the iOS Home Screen. Also enables Web Push on iOS.
+    statusBarStyle: "default",
+  },
 };
 
 export const viewport: Viewport = {
