@@ -11,6 +11,10 @@ interface AnswerContentProps {
    *  "### Add to your list" section if the model produced one. */
   children: string;
   language: Language;
+  /** When set, "Add to your list" chips write with source_thread_id set
+   *  so the resulting todo groups under this thread on /todos. Null on
+   *  the initial home-screen stream where no thread exists yet. */
+  threadId?: string | null;
 }
 
 const T = {
@@ -44,7 +48,7 @@ const T = {
  * intentionally NOT supported here (the /todos page's undo toast
  * covers the recover path if the user changes their mind).
  */
-export function AnswerContent({ children, language }: AnswerContentProps) {
+export function AnswerContent({ children, language, threadId }: AnswerContentProps) {
   const t = T[language];
   const { body, suggestedTodos } = useMemo(
     () => splitAnswerAnatomy(children ?? ""),
@@ -55,7 +59,7 @@ export function AnswerContent({ children, language }: AnswerContentProps) {
     <div className="space-y-4">
       <MarkdownContent>{body}</MarkdownContent>
       {suggestedTodos.length > 0 && (
-        <SuggestedTodos items={suggestedTodos} t={t} />
+        <SuggestedTodos items={suggestedTodos} t={t} threadId={threadId ?? null} />
       )}
     </div>
   );
@@ -66,9 +70,11 @@ type ChipState = "idle" | "adding" | "added" | "error";
 function SuggestedTodos({
   items,
   t,
+  threadId,
 }: {
   items: string[];
   t: (typeof T)[Language];
+  threadId: string | null;
 }) {
   return (
     <section className="rounded-card border border-line bg-green-wash/40 p-4 space-y-2.5">
@@ -78,7 +84,7 @@ function SuggestedTodos({
       <ul className="flex flex-wrap gap-2">
         {items.map((text, i) => (
           <li key={`${i}-${text}`}>
-            <AddChip text={text} t={t} />
+            <AddChip text={text} t={t} threadId={threadId} />
           </li>
         ))}
       </ul>
@@ -89,9 +95,11 @@ function SuggestedTodos({
 function AddChip({
   text,
   t,
+  threadId,
 }: {
   text: string;
   t: (typeof T)[Language];
+  threadId: string | null;
 }) {
   const [state, setState] = useState<ChipState>("idle");
   const [pending, startTransition] = useTransition();
@@ -102,6 +110,9 @@ function AddChip({
     startTransition(async () => {
       const fd = new FormData();
       fd.set("text", text);
+      // Link back to the thread the chip came from, so the todo groups
+      // under that thread's header on /todos.
+      if (threadId) fd.set("sourceThreadId", threadId);
       const result = await addTodo(fd);
       if (result.ok) {
         setState("added");
@@ -109,7 +120,7 @@ function AddChip({
         setState("error");
       }
     });
-  }, [state, text]);
+  }, [state, text, threadId]);
 
   const disabled = state !== "idle" || pending;
 

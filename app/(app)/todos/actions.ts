@@ -104,6 +104,12 @@ export async function addTodo(
   }
   if (items.length === 0) return { ok: false, error: "Couldn't read that task" };
 
+  // Merged-list linkage: chips inside a thread pass sourceThreadId so
+  // the item on /todos groups under a header linking back to the thread
+  // that produced it. Owner can be pre-set from the composer/picker.
+  const sourceThreadId = String(formData.get("sourceThreadId") ?? "").trim() || null;
+  const ownerId = String(formData.get("ownerId") ?? "").trim() || null;
+
   // Take just the first item — manual add is single-item by intent.
   const item = items[0];
   const { error } = await supabase.from("family_todos").insert({
@@ -113,6 +119,8 @@ export async function addTodo(
     text_en: item.text_en,
     due_at: item.due_at,
     assignee_role: item.assignee_role,
+    source_thread_id: sourceThreadId,
+    owner_id: ownerId,
   });
 
   if (error) return { ok: false, error: error.message };

@@ -140,7 +140,9 @@ export function StreamingResponse({
         // the "Add to your list" chip strip all appear as structure as
         // they stream. splitAnswerAnatomy handles partial streams
         // (returns no chips until the heading actually arrives).
-        <AnswerContent language={language}>{text}</AnswerContent>
+        <AnswerContent language={language} threadId={threadId ?? null}>
+          {text}
+        </AnswerContent>
       ) : (
         <LoadingDots />
       )}

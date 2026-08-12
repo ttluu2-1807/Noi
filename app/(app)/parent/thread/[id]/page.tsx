@@ -302,6 +302,7 @@ async function MessagesSection({
             showTTS
             autoRead={autoRead}
             memberNames={memberNames}
+            threadId={threadId}
           />
         ),
       )}

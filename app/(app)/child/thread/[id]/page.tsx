@@ -256,6 +256,7 @@ async function MessagesSection({
             allowToggle
             autoRead={autoRead}
             memberNames={memberNames}
+            threadId={threadId}
           />
         ),
       )}

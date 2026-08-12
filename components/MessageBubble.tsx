@@ -47,6 +47,10 @@ interface MessageBubbleProps {
    * distinguish "Mum" from "Dad" or "Mai" from "Hùng" inside a thread.
    */
   memberNames?: Record<string, string>;
+  /** Thread id — forwarded to AnswerContent so Add-to-list chips can
+   *  link the resulting family_todos row back to this thread. Null on
+   *  home-screen streams before a thread has been created. */
+  threadId?: string | null;
 }
 
 const ROLE_LABEL: Record<Language, Record<NonNullable<MessageRow["sender_role"]>, string>> = {
@@ -78,6 +82,7 @@ export function MessageBubble({
   showTTS = true,
   autoRead = false,
   memberNames,
+  threadId,
 }: MessageBubbleProps) {
   const [lang, setLang] = useState<Language>(viewerLanguage);
   const [speaking, setSpeaking] = useState(false);
@@ -167,7 +172,9 @@ export function MessageBubble({
               keep them plain-text with auto-linking for phones + AU
               domains. */}
           {isAssistant ? (
-            <AnswerContent language={lang}>{content}</AnswerContent>
+            <AnswerContent language={lang} threadId={threadId ?? null}>
+              {content}
+            </AnswerContent>
           ) : (
             renderTextWithLinks(content)
           )}
