@@ -7,6 +7,7 @@ import { translate } from "@/lib/translate";
 import { extractChecklist } from "@/lib/checklist-extract";
 import { generateThreadTitles } from "@/lib/thread-title";
 import { createServerClient, createServiceRoleClient } from "@/lib/supabase/server";
+import { notifyFamilyOfThreadActivity } from "@/lib/notify";
 
 /** MIME types Anthropic vision accepts. Matches our storage bucket allow-list. */
 const VISION_MIMES = ["image/jpeg", "image/png", "image/webp", "image/gif"] as const;
@@ -165,6 +166,19 @@ export async function POST(request: NextRequest) {
     input_language: inputLang,
     message_type: messageType,
     attachments,
+  });
+
+  // Fan-out push notification to other family members. Fire-and-forget:
+  // a bad push never blocks or fails the message insert.
+  notifyFamilyOfThreadActivity({
+    familySpaceId: profile.family_space_id,
+    threadId,
+    actorUserId: user.id,
+    titleVi: inputLang === "vi" ? message : userOther,
+    titleEn: inputLang === "en" ? message : userOther,
+    bodyVi: null,
+    bodyEn: null,
+    kind: threadIsNew ? "new-thread" : "new-reply",
   });
 
   // --- 3. Build Claude's message history -------------------------------

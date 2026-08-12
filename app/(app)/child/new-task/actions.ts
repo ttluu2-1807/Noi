@@ -6,6 +6,7 @@ import { translate } from "@/lib/translate";
 import { extractChecklist, type ChecklistItem } from "@/lib/checklist-extract";
 import { generateThreadTitles } from "@/lib/thread-title";
 import { createServerClient } from "@/lib/supabase/server";
+import { notifyFamilyOfThreadActivity } from "@/lib/notify";
 
 export interface TaskPreview {
   taskVi: string;
@@ -201,6 +202,19 @@ export async function submitTask(
     content_en: preview.taskEn,
     input_language: "en",
     message_type: "copilot_task",
+  });
+
+  // Push the parent(s): "Trung just set you a task" with the task text.
+  // Fire-and-forget; a push failure never fails the insert flow.
+  notifyFamilyOfThreadActivity({
+    familySpaceId: profile.family_space_id,
+    threadId: thread.id,
+    actorUserId: user.id,
+    titleVi: titles.title_vi,
+    titleEn: titles.title_en,
+    bodyVi: preview.taskVi,
+    bodyEn: preview.taskEn,
+    kind: "new-thread",
   });
 
   // Noi's response with the steps.

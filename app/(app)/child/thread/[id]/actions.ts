@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createServerClient } from "@/lib/supabase/server";
 import { translate } from "@/lib/translate";
 import { detectLanguage, otherLanguage } from "@/lib/language-detect";
+import { notifyFamilyOfThreadActivity } from "@/lib/notify";
 
 interface AttachmentMeta {
   path: string;
@@ -100,6 +101,26 @@ export async function replyToThread(formData: FormData) {
   });
 
   if (error) return { ok: false as const, error: error.message };
+
+  // Push to the parent(s) that the child replied on this thread.
+  // We look up the thread title inline (best-effort — no title, no push).
+  const { data: threadRow } = await supabase
+    .from("threads")
+    .select("title_vi, title_en, family_space_id")
+    .eq("id", threadId)
+    .maybeSingle();
+  if (threadRow?.family_space_id) {
+    notifyFamilyOfThreadActivity({
+      familySpaceId: threadRow.family_space_id,
+      threadId,
+      actorUserId: user.id,
+      titleVi: threadRow.title_vi as string | null,
+      titleEn: threadRow.title_en as string | null,
+      bodyVi: contentVi || null,
+      bodyEn: contentEn || null,
+      kind: "new-reply",
+    });
+  }
 
   revalidatePath(`/child/thread/${threadId}`);
   revalidatePath(`/parent/thread/${threadId}`);
