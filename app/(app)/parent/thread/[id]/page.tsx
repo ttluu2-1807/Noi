@@ -12,6 +12,7 @@ import { DayDivider, withDayDividers } from "@/components/DayDivider";
 import { listFamilyTags } from "@/lib/tags";
 import { fetchFamilyMembers, membersById } from "@/lib/family-members";
 import { FollowUpInput } from "./FollowUpInput";
+import { AskForHelp } from "./AskForHelp";
 // Shared with the child side — both roles can edit status + tags.
 import {
   setThreadStatus,
@@ -74,7 +75,9 @@ export default async function ParentThreadPage({
       .maybeSingle(),
     supabase
       .from("threads")
-      .select("id, title_vi, title_en, tags, status, deleted_at")
+      .select(
+        "id, title_vi, title_en, tags, status, deleted_at, escalated_at, escalation_note",
+      )
       .eq("id", params.id)
       .maybeSingle(),
   ]);
@@ -154,6 +157,19 @@ export default async function ParentThreadPage({
               language={language}
             />
           </Suspense>
+          {/* Escalation — "I need help with this" affordance for the
+              parent. Idle: a clay-tinted chip. Active: an inline banner
+              showing the request is waiting + a cancel affordance. */}
+          <div className="pt-1">
+            <AskForHelp
+              threadId={thread.id}
+              language={language}
+              escalatedAt={(thread.escalated_at as string | null) ?? null}
+              escalationNote={
+                (thread.escalation_note as string | null) ?? null
+              }
+            />
+          </div>
         </header>
 
         <Suspense fallback={<TabsSkeleton />}>

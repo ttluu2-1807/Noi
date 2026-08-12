@@ -31,6 +31,16 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type AttentionItem =
   | {
+      kind: "thread-escalated";
+      id: string;
+      title_en: string;
+      title_vi: string;
+      escalated_at: string;
+      escalation_note: string | null;
+      escalated_by_name: string | null;
+      href: string;
+    }
+  | {
       kind: "todo-overdue" | "todo-today" | "todo-soon";
       id: string;
       title_en: string;
@@ -63,6 +73,15 @@ export interface NeedsAttention {
 
 const ATTENTION_LIMIT = 8;
 
+interface EscalatedThreadRow {
+  id: string;
+  title_vi: string | null;
+  title_en: string | null;
+  escalated_at: string;
+  escalation_note: string | null;
+  escalated_by: string | null;
+}
+
 export async function fetchNeedsAttention(
   supabase: SupabaseClient,
   familySpaceId: string,
@@ -78,8 +97,13 @@ export async function fetchNeedsAttention(
     const threadBase =
       role === "parent" ? "/parent/thread" : "/child/thread";
 
-    const [dueTodosRes, upcomingEventsRes, recentThreadsRes, viewsRes] =
-      await Promise.all([
+    const [
+      dueTodosRes,
+      upcomingEventsRes,
+      recentThreadsRes,
+      viewsRes,
+      escalationsRes,
+    ] = await Promise.all([
         supabase
           .from("family_todos")
           .select("id, text_en, text_vi, due_at")
@@ -113,9 +137,63 @@ export async function fetchNeedsAttention(
           .from("thread_views")
           .select("thread_id, last_viewed_at")
           .eq("user_id", userId),
+        // Escalations — parent asked for help, waiting to be resolved.
+        // Only surface to the CHILD role's dashboard (the audience the
+        // parent is asking); parents don't need to be nagged with their
+        // own outstanding requests.
+        role === "child"
+          ? supabase
+              .from("threads")
+              .select(
+                "id, title_vi, title_en, escalated_at, escalation_note, escalated_by",
+              )
+              .eq("family_space_id", familySpaceId)
+              .not("escalated_at", "is", null)
+              .is("deleted_at", null)
+              .order("escalated_at", { ascending: false })
+              .limit(5)
+          : Promise.resolve({ data: [] as EscalatedThreadRow[] }),
       ]);
 
     const items: AttentionItem[] = [];
+
+    // Escalations first — resolve escalator display names in a single
+    // lookup if any exist.
+    const escalations =
+      (escalationsRes.data as EscalatedThreadRow[] | null) ?? [];
+    if (escalations.length > 0) {
+      const escalatorIds = Array.from(
+        new Set(
+          escalations
+            .map((e) => e.escalated_by)
+            .filter((v): v is string => !!v),
+        ),
+      );
+      let nameById: Record<string, string> = {};
+      if (escalatorIds.length > 0) {
+        const { data: names } = await supabase
+          .from("profiles")
+          .select("id, display_name")
+          .in("id", escalatorIds);
+        nameById = Object.fromEntries(
+          (names ?? []).map((r) => [r.id as string, r.display_name as string]),
+        );
+      }
+      for (const e of escalations) {
+        items.push({
+          kind: "thread-escalated",
+          id: e.id,
+          title_en: (e.title_en ?? "") as string,
+          title_vi: (e.title_vi ?? "") as string,
+          escalated_at: e.escalated_at as string,
+          escalation_note: (e.escalation_note ?? null) as string | null,
+          escalated_by_name: e.escalated_by
+            ? (nameById[e.escalated_by] ?? null)
+            : null,
+          href: `/child/thread/${e.id}`,
+        });
+      }
+    }
 
     // Todos, bucketed by urgency.
     for (const t of dueTodosRes.data ?? []) {
@@ -170,9 +248,10 @@ export async function fetchNeedsAttention(
       });
     }
 
-    // Rank: overdue → today → soon → unread threads. Within each bucket,
-    // preserve the incoming order (already sorted by due_at / updated_at).
+    // Rank: escalations first (loudest), then overdue → today → soon
+    // → unread threads. Within each bucket, preserve incoming order.
     const rank: Record<AttentionItem["kind"], number> = {
+      "thread-escalated": -1,
       "todo-overdue": 0,
       "event-today": 1,
       "todo-today": 2,

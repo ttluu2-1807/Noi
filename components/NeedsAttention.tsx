@@ -18,6 +18,8 @@ const T = {
     unread: "Tin mới",
     event: "Sự kiện",
     todo: "Việc cần làm",
+    escalated: (name: string | null) =>
+      name ? `${name} cần giúp` : "Cần con giúp",
   },
   en: {
     heading: "Needs attention",
@@ -29,6 +31,8 @@ const T = {
     unread: "New reply",
     event: "Event",
     todo: "To-do",
+    escalated: (name: string | null) =>
+      name ? `${name} needs your help` : "Needs your help",
   },
 } as const;
 
@@ -116,6 +120,15 @@ function kindMeta(
   const chat = <ChatIcon className="h-4 w-4" />;
 
   switch (item.kind) {
+    case "thread-escalated":
+      return {
+        iconWrap: "bg-clay text-white",
+        metaClass: "text-clay-deep font-medium",
+        metaText: item.escalation_note
+          ? `${t.escalated(item.escalated_by_name)} · "${item.escalation_note}"`
+          : t.escalated(item.escalated_by_name),
+        icon: bell,
+      };
     case "todo-overdue":
       return {
         iconWrap: "bg-clay-wash text-clay-deep",

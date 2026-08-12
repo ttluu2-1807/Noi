@@ -12,6 +12,7 @@ import { DayDivider, withDayDividers } from "@/components/DayDivider";
 import { listFamilyTags } from "@/lib/tags";
 import { fetchFamilyMembers, membersById } from "@/lib/family-members";
 import { ChildComposer } from "./ChildComposer";
+import { EscalationBanner } from "./EscalationBanner";
 import { setThreadStatus, setThreadTags } from "./actions";
 
 
@@ -44,7 +45,9 @@ export default async function ChildThreadPage({
       .maybeSingle(),
     supabase
       .from("threads")
-      .select("id, title_vi, title_en, tags, status, initiated_by_role, deleted_at")
+      .select(
+        "id, title_vi, title_en, tags, status, initiated_by_role, deleted_at, escalated_at, escalated_by, escalation_note",
+      )
       .eq("id", params.id)
       .maybeSingle(),
   ]);
@@ -56,6 +59,17 @@ export default async function ChildThreadPage({
   const thread = threadResult.data;
   // Treat a soft-deleted thread the same as missing.
   if (!thread || thread.deleted_at) notFound();
+
+  // If escalated, resolve who escalated it so the banner can name them.
+  let escalatedByName: string | null = null;
+  if (thread.escalated_at && thread.escalated_by) {
+    const { data: escalator } = await supabase
+      .from("profiles")
+      .select("display_name")
+      .eq("id", thread.escalated_by)
+      .maybeSingle();
+    escalatedByName = (escalator?.display_name as string | null) ?? null;
+  }
 
   const tab = searchParams.tab === "actions" ? "actions" : "chat";
 
@@ -124,6 +138,14 @@ export default async function ChildThreadPage({
             />
           </Suspense>
         </header>
+
+        {thread.escalated_at && (
+          <EscalationBanner
+            threadId={thread.id}
+            escalatedByName={escalatedByName}
+            escalationNote={(thread.escalation_note as string | null) ?? null}
+          />
+        )}
 
         <Suspense fallback={<TabsSkeleton />}>
           <ThreadTabsWithCounts
