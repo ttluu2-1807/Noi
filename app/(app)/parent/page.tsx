@@ -1,21 +1,20 @@
 import { createServerClient } from "@/lib/supabase/server";
 import { RealtimeBoundary } from "@/components/RealtimeBoundary";
 import { ParentHome } from "./ParentHome";
-import type { ThreadSummary, LatestMessageSummary } from "@/components/ThreadCard";
-import { fetchLatestMessagePerThread } from "@/lib/thread-previews";
-import { fetchFamilyMembers, membersById } from "@/lib/family-members";
-import { fetchParentInsights, type ParentInsights } from "@/lib/insights";
+import { fetchNeedsAttention } from "@/lib/insights";
 
-
-// PERF-5: hard cap on visible threads per tab. Beyond this we'd want
-// proper pagination; in early life-of-family this is rarely hit.
-const DASHBOARD_LIMIT = 50;
-
-export default async function ParentPage({
-  searchParams,
-}: {
-  searchParams: { status?: string };
-}) {
+/**
+ * Parent home entry — v1 home port.
+ *
+ * The audit dropped two heavy sections from this page: the family code
+ * line (moved into HeaderMenu only) and the activity feed with its
+ * open/done tabs. The whole "recent threads" query, unread computation,
+ * status counts, and QuickAccessRow counters that supported the feed
+ * are gone. What replaces them is a small `Needs attention` list —
+ * items due or unread, ranked by urgency, tap-to-open — plus the same
+ * greeting → mic → type field composer at the top that was always here.
+ */
+export default async function ParentPage() {
   const supabase = createServerClient();
   const {
     data: { user },
@@ -27,46 +26,26 @@ export default async function ParentPage({
     .select("display_name, family_space_id, language_preference")
     .eq("id", user.id)
     .maybeSingle();
-  // Guard against a missing profile (RLS issue, network blip, etc.) so
-  // the page doesn't crash on the non-null assertions below.
   if (!profile?.family_space_id) return null;
 
   const language = (profile.language_preference ?? "vi") as "vi" | "en";
-  const activeStatus: "open" | "done" =
-    searchParams.status === "done" ? "done" : "open";
 
-  // Three parallel queries: family record + visible threads + the OTHER
-  // tab's count (so the tab pill shows the right number). The query
-  // for the visible tab uses .limit() to cap rows; the count queries
-  // use head:true so no rows transfer, only a number.
-  const [familyResult, visibleThreadsResult, openCountResult, doneCountResult, diaryCountResult] =
-    await Promise.all([
-      supabase
-        .from("family_spaces")
-        .select("invite_code")
-        .eq("id", profile.family_space_id)
-        .maybeSingle(),
-      activeStatus === "done"
-        ? supabase
-            .from("threads")
-            .select(
-              "id, title_vi, title_en, tags, status, updated_at, initiated_by_role",
-            )
-            .eq("family_space_id", profile.family_space_id)
-            .eq("status", "resolved")
-            .is("deleted_at", null)
-            .order("updated_at", { ascending: false })
-            .limit(DASHBOARD_LIMIT)
-        : supabase
-            .from("threads")
-            .select(
-              "id, title_vi, title_en, tags, status, updated_at, initiated_by_role",
-            )
-            .eq("family_space_id", profile.family_space_id)
-            .neq("status", "resolved")
-            .is("deleted_at", null)
-            .order("updated_at", { ascending: false })
-            .limit(DASHBOARD_LIMIT),
+  const [familyResult, needsAttention, countsResult] = await Promise.all([
+    supabase
+      .from("family_spaces")
+      .select("invite_code")
+      .eq("id", profile.family_space_id)
+      .maybeSingle(),
+    fetchNeedsAttention(
+      supabase,
+      profile.family_space_id,
+      user.id,
+      "parent",
+    ),
+    // Small header-menu counts (three head-only queries — cheap). Fuel
+    // the QuickAccessRow tiles' tap targets; no user-facing counters
+    // appear on the home surface itself per the audit.
+    Promise.all([
       supabase
         .from("threads")
         .select("*", { count: "exact", head: true })
@@ -74,85 +53,37 @@ export default async function ParentPage({
         .neq("status", "resolved")
         .is("deleted_at", null),
       supabase
-        .from("threads")
+        .from("family_todos")
         .select("*", { count: "exact", head: true })
         .eq("family_space_id", profile.family_space_id)
-        .eq("status", "resolved")
+        .eq("is_completed", false)
         .is("deleted_at", null),
       supabase
         .from("diary_entries")
         .select("*", { count: "exact", head: true })
         .eq("family_space_id", profile.family_space_id)
         .is("deleted_at", null),
-    ]);
-
-  const visibleThreads = (visibleThreadsResult.data ?? []) as ThreadSummary[];
-  const openCount = openCountResult.count ?? 0;
-  const doneCount = doneCountResult.count ?? 0;
-  const diaryCount = diaryCountResult.count ?? 0;
-  const family = familyResult.data;
-
-  const [latestByThread, viewsResult, parentInsights, familyMembers] = await Promise.all([
-    fetchLatestMessagePerThread(supabase, visibleThreads.map((t) => t.id)),
-    // Wave 3 I: fetch the current user's last_viewed_at for the visible
-    // threads. We compute the unread set in JS — a thread is unread if
-    // its updated_at is newer than the user's recorded last_viewed_at,
-    // or if there's no view record at all.
-    visibleThreads.length > 0
-      ? supabase
-          .from("thread_views")
-          .select("thread_id, last_viewed_at")
-          .eq("user_id", user.id)
-          .in(
-            "thread_id",
-            visibleThreads.map((t) => t.id),
-          )
-      : Promise.resolve({ data: [] as { thread_id: string; last_viewed_at: string }[] }),
-    fetchParentInsights(supabase, profile.family_space_id),
-    fetchFamilyMembers(supabase, profile.family_space_id),
+    ]),
   ]);
 
-  const memberNamesById: Record<string, string> = Object.fromEntries(
-    Object.entries(membersById(familyMembers)).map(([id, m]) => [
-      id,
-      m.display_name,
-    ]),
-  );
-
-  const lastViewedByThread = new Map<string, string>();
-  for (const row of viewsResult.data ?? []) {
-    lastViewedByThread.set(row.thread_id, row.last_viewed_at);
-  }
-  const unreadThreadIds = new Set<string>(
-    visibleThreads
-      .filter((t) => {
-        const last = lastViewedByThread.get(t.id);
-        return !last || t.updated_at > last;
-      })
-      .map((t) => t.id),
-  );
+  const [threadsCount, todosCount, diaryCount] = countsResult;
 
   return (
     <RealtimeBoundary
-      tables={["threads", "messages", "thread_views"]}
+      tables={["threads", "messages", "thread_views", "family_todos", "diary_entries"]}
       channelName={`parent-home-${profile.family_space_id}`}
     >
       <ParentHome
         displayName={
           profile?.display_name ?? (language === "vi" ? "quý vị" : "there")
         }
-        recentThreads={visibleThreads}
-        latestMessages={latestByThread as Record<string, LatestMessageSummary>}
-        memberNames={memberNamesById}
-        unreadThreadIds={unreadThreadIds}
         language={language}
         familySpaceId={profile.family_space_id}
-        inviteCode={family?.invite_code ?? null}
-        activeStatus={activeStatus}
-        openCount={openCount}
-        doneCount={doneCount}
-        diaryCount={diaryCount}
-        insights={parentInsights as ParentInsights}
+        inviteCode={familyResult.data?.invite_code ?? null}
+        needsAttention={needsAttention}
+        threadsCount={threadsCount.count ?? 0}
+        todosCount={todosCount.count ?? 0}
+        diaryCount={diaryCount.count ?? 0}
       />
     </RealtimeBoundary>
   );

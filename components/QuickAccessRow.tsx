@@ -95,20 +95,31 @@ function Tile({
   count?: number;
   hint?: string;
 }) {
+  // Tile is icon + label. When there's an unread/pending count, we
+  // surface it as a small inbox-style pill in the top-right corner —
+  // not as a body-sm caption underneath the label. The audit doesn't
+  // want "3 open" prose next to nav; it's fine as a compact badge.
+  const showBadge = typeof count === "number" && count > 0;
   return (
     <Link
       href={href}
-      className="group flex flex-col items-start gap-1.5 rounded-card border border-line bg-white p-3 hover:border-accent/40 hover:shadow-sm active:scale-[0.97] transition-all"
+      className="group relative flex flex-col items-start gap-1.5 rounded-card border border-line bg-surface p-3 hover:border-green/40 hover:shadow-sm active:scale-[0.97] transition-all"
     >
-      <span className="text-accent group-hover:scale-110 transition-transform">
+      <span className="text-green group-hover:scale-110 transition-transform">
         {icon}
       </span>
-      <span className="text-sm font-medium text-ink">{label}</span>
-      {hint !== undefined ? (
-        <span className="text-body-sm text-muted truncate w-full">{hint}</span>
-      ) : count !== undefined ? (
-        <span className="text-body-sm text-muted">{count}</span>
-      ) : null}
+      <span className="text-body-sm font-medium text-ink">{label}</span>
+      {hint !== undefined && (
+        <span className="text-body-sm text-ink-3 truncate w-full">{hint}</span>
+      )}
+      {showBadge && (
+        <span
+          aria-label={`${count} items`}
+          className="absolute top-2 right-2 inline-flex min-w-[20px] h-5 items-center justify-center rounded-full bg-green-wash text-green-text text-body-sm font-medium px-1.5"
+        >
+          {count}
+        </span>
+      )}
     </Link>
   );
 }

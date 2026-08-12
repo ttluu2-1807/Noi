@@ -4,96 +4,83 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { VoiceInput } from "@/components/VoiceInput";
 import { StreamingResponse } from "@/components/StreamingResponse";
-import { ThreadCard, type ThreadSummary, type LatestMessageSummary } from "@/components/ThreadCard";
-import { ThreadActionsMenu } from "@/components/ThreadActionsMenu";
 import { AttachmentPicker } from "@/components/AttachmentPicker";
 import { HeaderMenu } from "@/components/HeaderMenu";
-import { StatusTabs } from "@/components/StatusTabs";
 import { HeroIllustration } from "@/components/HeroIllustration";
 import { SuggestedQuestions } from "@/components/SuggestedQuestions";
-import { TodayTodosBanner } from "@/components/insights/TodayTodosBanner";
 import { QuickAccessRow } from "@/components/QuickAccessRow";
 import { WeeklyDigestCard } from "@/components/WeeklyDigestCard";
-import { FilteredEmptyState } from "@/components/FilteredEmptyState";
+import { NeedsAttention } from "@/components/NeedsAttention";
 import { timeOfDayGreeting } from "@/lib/greeting";
-import type { ParentInsights } from "@/lib/insights";
+import type { NeedsAttention as NeedsAttentionData } from "@/lib/insights";
 import type { Attachment } from "@/lib/storage";
 import type { Language } from "@/lib/language-detect";
 
 interface ParentHomeProps {
   displayName: string;
-  recentThreads: ThreadSummary[];
-  latestMessages: Record<string, LatestMessageSummary>;
-  /** sender id -> display name lookup, for naming the latest-message sender. */
-  memberNames: Record<string, string>;
-  /** Thread ids with new activity since this user last viewed. */
-  unreadThreadIds: Set<string>;
   language: Language;
   familySpaceId: string;
   inviteCode: string | null;
-  activeStatus: "open" | "done";
-  openCount: number;
-  doneCount: number;
+  needsAttention: NeedsAttentionData;
+  /** Counts for QuickAccessRow tile badges only — not shown as prose. */
+  threadsCount: number;
+  todosCount: number;
   diaryCount: number;
-  insights: ParentInsights;
 }
 
 const T = {
   vi: {
     prompt: "Quý vị muốn hỏi điều gì hôm nay?",
-    settings: "Cài đặt",
     placeholder: "Hoặc gõ câu hỏi ở đây...",
     send: "Gửi",
     questionHeading: "Câu hỏi",
-    recentHeading: "Câu hỏi gần đây",
+    imageFallback:
+      "Quý vị có thể giải thích giúp tôi nội dung trong hình ảnh này không?",
   },
   en: {
     prompt: "What would you like to ask today?",
-    settings: "Settings",
     placeholder: "Or type your question here…",
     send: "Send",
     questionHeading: "Question",
-    recentHeading: "Recent questions",
+    imageFallback: "Could you explain what's in this image for me?",
   },
 } as const;
 
 /**
- * Parent's home screen. Three states:
- *   - idle     : mic + text fallback + recent threads list
- *   - streaming: the question the parent just asked + streaming response
+ * Parent home — v1 layout per audit screen 01.
  *
- * UI strings + voice recognition language + content language all key off
- * the parent's `language_preference` (toggleable in Settings).
+ * Two states:
+ *   - idle     : greeting + quick-access tiles + weekly digest card +
+ *                hero mic + type field + attachment + "Needs attention" list
+ *   - streaming: the parent's just-asked question + streaming response,
+ *                which routes to the thread page on completion.
+ *
+ * The activity feed with its open/done tabs is gone. The family code
+ * line under the greeting is gone (still available via HeaderMenu).
+ * "Needs attention" replaces "TodayTodosBanner" as the single surface
+ * for items due or unread, drawing across todos, diary events, and
+ * unread threads.
  */
 export function ParentHome({
   displayName,
-  recentThreads,
-  latestMessages,
-  memberNames,
-  unreadThreadIds,
   language,
   familySpaceId,
   inviteCode,
-  activeStatus,
-  openCount,
-  doneCount,
+  needsAttention,
+  threadsCount,
+  todosCount,
   diaryCount,
-  insights,
 }: ParentHomeProps) {
   const router = useRouter();
   const t = T[language];
   const [query, setQuery] = useState<string | null>(null);
   const [textInput, setTextInput] = useState("");
   const [attachment, setAttachment] = useState<Attachment | null>(null);
-  // Snapshot of the attachment sent with the current pending query, so
-  // StreamingResponse can forward it to /api/chat. We snapshot rather than
-  // share state because the user might pick a new attachment for their
-  // next question while this one is still streaming.
-  const [pendingAttachment, setPendingAttachment] = useState<Attachment | null>(null);
+  const [pendingAttachment, setPendingAttachment] = useState<Attachment | null>(
+    null,
+  );
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
-  // Compute greeting client-side so it picks up the user's local hour.
-  // Server-rendered greeting would use Vercel's UTC clock and be wrong.
   const [greeting, setGreeting] = useState(() =>
     timeOfDayGreeting(displayName, language, new Date()),
   );
@@ -105,8 +92,10 @@ export function ParentHome({
     return (
       <main className="mx-auto max-w-md px-6 py-10 space-y-8">
         <header>
-          <h1 className="text-2xl font-medium">{t.questionHeading}</h1>
-          <p className="mt-2 rounded-bubble bg-clay-wash p-4">{query}</p>
+          <h1 className="text-title font-medium">{t.questionHeading}</h1>
+          <p className="mt-2 rounded-bubble bg-clay-wash p-4 text-body">
+            {query}
+          </p>
         </header>
         <section>
           <StreamingResponse
@@ -123,24 +112,21 @@ export function ParentHome({
 
   const submit = (text: string) => {
     const trimmed = text.trim();
-    // Either a question or an image is required.
     if (!trimmed && !attachment) return;
     setPendingAttachment(attachment);
-    setQuery(
-      trimmed ||
-        (language === "vi"
-          ? "Quý vị có thể giải thích giúp tôi nội dung trong hình ảnh này không?"
-          : "Could you explain what's in this image for me?"),
-    );
+    setQuery(trimmed || t.imageFallback);
     setAttachment(null);
   };
 
+  const nothingYet =
+    threadsCount === 0 && todosCount === 0 && diaryCount === 0;
+
   return (
-    <main className="mx-auto max-w-md px-6 py-10 space-y-10">
+    <main className="mx-auto max-w-md px-gutter py-10 space-y-10">
       <header className="flex items-start justify-between gap-4">
-        <div className="space-y-1 min-w-0 flex-1">
-          <h1 className="text-2xl font-medium truncate">{greeting}</h1>
-          <p className="text-muted">{t.prompt}</p>
+        <div className="min-w-0 flex-1 space-y-1">
+          <h1 className="text-display font-medium truncate">{greeting}</h1>
+          <p className="text-ink-3 text-body">{t.prompt}</p>
         </div>
         <HeaderMenu
           role="parent"
@@ -152,40 +138,13 @@ export function ParentHome({
 
       <QuickAccessRow
         language={language}
-        counts={{ threads: openCount, diary: diaryCount }}
-        hints={{
-          threads:
-            openCount > 0
-              ? language === "vi"
-                ? `${openCount} đang mở`
-                : `${openCount} open`
-              : language === "vi"
-                ? "—"
-                : "—",
-          todos:
-            insights.todayTodos.length > 0
-              ? language === "vi"
-                ? `${insights.todayTodos.length} hôm nay`
-                : `${insights.todayTodos.length} today`
-              : language === "vi"
-                ? "—"
-                : "—",
-          diary:
-            diaryCount > 0
-              ? language === "vi"
-                ? `${diaryCount} mục`
-                : `${diaryCount} entries`
-              : language === "vi"
-                ? "—"
-                : "—",
-        }}
+        counts={{ threads: threadsCount, diary: diaryCount }}
         activityHref="/parent"
       />
 
       <WeeklyDigestCard language={language} />
 
-      <TodayTodosBanner todos={insights.todayTodos} language={language} />
-
+      {/* Composer — the "Question, hero mic, type field" of the audit. */}
       <section className="flex flex-col items-center gap-6">
         <VoiceInput
           language={language}
@@ -208,7 +167,7 @@ export function ParentHome({
               onChange={(e) => setTextInput(e.target.value)}
               placeholder={t.placeholder}
               rows={3}
-              className="w-full rounded-card border border-line bg-white px-4 py-3 leading-relaxed focus:border-accent focus:outline-none resize-none"
+              className="w-full rounded-card border border-line bg-surface px-4 py-3 leading-relaxed text-body focus:border-green focus:outline-none resize-none"
             />
           </label>
           <AttachmentPicker
@@ -220,18 +179,21 @@ export function ParentHome({
           <button
             type="submit"
             disabled={!textInput.trim() && !attachment}
-            className="btn-primary w-full rounded-card px-4 py-3 active:scale-[0.98]"
+            className="btn-primary w-full rounded-card px-4 py-3"
           >
             {t.send}
           </button>
         </form>
       </section>
 
-      {/* Empty state: hero illustration + suggested first questions.
-          Only shown if there are no threads of either status. */}
-      {openCount === 0 && doneCount === 0 && (
+      {/* Needs attention — replaces the old activity feed and TodayTodosBanner.
+          Items due or unread, ranked; tap through to act. */}
+      <NeedsAttention data={needsAttention} language={language} />
+
+      {/* First-run empty state: hero illustration + suggested first questions. */}
+      {nothingYet && (
         <section className="text-center space-y-6 pt-2">
-          <HeroIllustration className="w-44 h-20 text-accent/70 mx-auto" />
+          <HeroIllustration className="w-44 h-20 text-green/70 mx-auto" />
           <SuggestedQuestions
             language={language}
             onPick={(q) => {
@@ -239,100 +201,6 @@ export function ParentHome({
               textareaRef.current?.focus();
             }}
           />
-        </section>
-      )}
-
-      {(openCount > 0 || doneCount > 0) && (
-        <section className="space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-sm text-muted uppercase tracking-wide">
-              {t.recentHeading}
-            </h2>
-            <StatusTabs
-              basePath="/parent"
-              active={activeStatus}
-              language={language}
-              openCount={openCount}
-              doneCount={doneCount}
-            />
-          </div>
-          {recentThreads.length > 0 ? (
-            <ul className="space-y-2">
-              {recentThreads.map((thread) => (
-                <li key={thread.id}>
-                  <ThreadCard
-                    thread={thread}
-                    language={language}
-                    basePath="/parent/thread"
-                    latestMessage={latestMessages[thread.id]}
-                    memberNames={memberNames}
-                    unread={unreadThreadIds.has(thread.id)}
-                    // Highlight tasks the child set up for the parent — these
-                    // feel new and distinct from the parent's own questions.
-                    highlight={
-                      thread.initiated_by_role === "child" &&
-                      thread.status === "open"
-                    }
-                    actions={
-                      <ThreadActionsMenu
-                        threadId={thread.id}
-                        language={language}
-                        threadTitle={
-                          (language === "vi" ? thread.title_vi : thread.title_en) ?? ""
-                        }
-                      />
-                    }
-                  />
-                </li>
-              ))}
-            </ul>
-          ) : activeStatus === "done" ? (
-            <FilteredEmptyState
-              title={
-                language === "vi"
-                  ? "Chưa có câu hỏi nào được đánh dấu đã xong."
-                  : "Nothing marked done yet."
-              }
-              hint={
-                openCount > 0
-                  ? language === "vi"
-                    ? `${openCount} câu hỏi còn đang mở.`
-                    : `${openCount} still open.`
-                  : undefined
-              }
-              secondaryAction={
-                openCount > 0
-                  ? {
-                      label: language === "vi" ? "Xem câu hỏi đang mở" : "See open",
-                      href: "/parent",
-                    }
-                  : undefined
-              }
-            />
-          ) : (
-            <FilteredEmptyState
-              title={
-                language === "vi"
-                  ? "Không có câu hỏi nào đang mở."
-                  : "No open questions."
-              }
-              hint={
-                doneCount > 0
-                  ? language === "vi"
-                    ? `${doneCount} câu hỏi đã xong.`
-                    : `${doneCount} marked done.`
-                  : undefined
-              }
-              secondaryAction={
-                doneCount > 0
-                  ? {
-                      label: language === "vi" ? "Xem đã xong" : "See done",
-                      href: "/parent?status=done",
-                    }
-                  : undefined
-              }
-            />
-          )}
         </section>
       )}
     </main>

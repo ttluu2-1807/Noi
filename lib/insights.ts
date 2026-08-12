@@ -17,6 +17,183 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+// ------------------------------------------------------------------
+// Needs attention (T2 home port)
+//
+// The audit's "Needs attention" contract: items due or unread, never
+// counters. A single flat list, ranked, tap-to-open. Sources:
+//   - todos with due_at ≤ now+3d (overdue first, then today, then soon)
+//   - diary events (kind=event) with event_date ≤ today+3d
+//   - threads updated since the current user last viewed them
+//
+// The result is small (cap 8) so we can render inline without pagination.
+// Ordering matters: overdue → today → next 3 days → unread threads.
+
+export type AttentionItem =
+  | {
+      kind: "todo-overdue" | "todo-today" | "todo-soon";
+      id: string;
+      title_en: string;
+      title_vi: string;
+      due_at: string;
+      href: string;
+    }
+  | {
+      kind: "event-today" | "event-soon";
+      id: string;
+      title_en: string;
+      title_vi: string;
+      event_date: string;
+      href: string;
+    }
+  | {
+      kind: "thread-unread";
+      id: string;
+      title_en: string;
+      title_vi: string;
+      updated_at: string;
+      href: string;
+    };
+
+export interface NeedsAttention {
+  items: AttentionItem[];
+  /** True when we surveyed all sources and found nothing — "You're all caught up". */
+  allCaughtUp: boolean;
+}
+
+const ATTENTION_LIMIT = 8;
+
+export async function fetchNeedsAttention(
+  supabase: SupabaseClient,
+  familySpaceId: string,
+  userId: string,
+  role: "parent" | "child",
+): Promise<NeedsAttention> {
+  try {
+    const now = new Date();
+    const endOfToday = new Date(now);
+    endOfToday.setHours(23, 59, 59, 999);
+    const threeDays = new Date(now.getTime() + 3 * DAY_MS);
+    threeDays.setHours(23, 59, 59, 999);
+    const threadBase =
+      role === "parent" ? "/parent/thread" : "/child/thread";
+
+    const [dueTodosRes, upcomingEventsRes, recentThreadsRes, viewsRes] =
+      await Promise.all([
+        supabase
+          .from("family_todos")
+          .select("id, text_en, text_vi, due_at")
+          .eq("family_space_id", familySpaceId)
+          .eq("is_completed", false)
+          .is("deleted_at", null)
+          .not("due_at", "is", null)
+          .lte("due_at", threeDays.toISOString())
+          .order("due_at", { ascending: true })
+          .limit(20),
+        supabase
+          .from("diary_entries")
+          .select("id, title_en, title_vi, event_date")
+          .eq("family_space_id", familySpaceId)
+          .eq("kind", "event")
+          .is("deleted_at", null)
+          .not("event_date", "is", null)
+          .gte("event_date", now.toISOString().slice(0, 10))
+          .lte("event_date", threeDays.toISOString().slice(0, 10))
+          .order("event_date", { ascending: true })
+          .limit(10),
+        supabase
+          .from("threads")
+          .select("id, title_en, title_vi, updated_at")
+          .eq("family_space_id", familySpaceId)
+          .is("deleted_at", null)
+          .neq("status", "resolved")
+          .order("updated_at", { ascending: false })
+          .limit(20),
+        supabase
+          .from("thread_views")
+          .select("thread_id, last_viewed_at")
+          .eq("user_id", userId),
+      ]);
+
+    const items: AttentionItem[] = [];
+
+    // Todos, bucketed by urgency.
+    for (const t of dueTodosRes.data ?? []) {
+      const due = new Date(t.due_at as string);
+      const kind: AttentionItem["kind"] =
+        due < now
+          ? "todo-overdue"
+          : due <= endOfToday
+            ? "todo-today"
+            : "todo-soon";
+      items.push({
+        kind,
+        id: t.id as string,
+        title_en: (t.text_en ?? "") as string,
+        title_vi: (t.text_vi ?? "") as string,
+        due_at: t.due_at as string,
+        href: "/todos",
+      });
+    }
+
+    // Diary events happening today or in the next 3 days.
+    const todayIso = now.toISOString().slice(0, 10);
+    for (const e of upcomingEventsRes.data ?? []) {
+      const kind: AttentionItem["kind"] =
+        (e.event_date as string) === todayIso ? "event-today" : "event-soon";
+      items.push({
+        kind,
+        id: e.id as string,
+        title_en: (e.title_en ?? "") as string,
+        title_vi: (e.title_vi ?? "") as string,
+        event_date: e.event_date as string,
+        href: `/diary/${e.id}`,
+      });
+    }
+
+    // Unread threads: joined against the current user's thread_views.
+    const lastViewedByThread = new Map<string, string>();
+    for (const v of viewsRes.data ?? []) {
+      lastViewedByThread.set(v.thread_id as string, v.last_viewed_at as string);
+    }
+    for (const th of recentThreadsRes.data ?? []) {
+      const last = lastViewedByThread.get(th.id as string);
+      const isUnread = !last || (th.updated_at as string) > last;
+      if (!isUnread) continue;
+      items.push({
+        kind: "thread-unread",
+        id: th.id as string,
+        title_en: (th.title_en ?? "") as string,
+        title_vi: (th.title_vi ?? "") as string,
+        updated_at: th.updated_at as string,
+        href: `${threadBase}/${th.id}`,
+      });
+    }
+
+    // Rank: overdue → today → soon → unread threads. Within each bucket,
+    // preserve the incoming order (already sorted by due_at / updated_at).
+    const rank: Record<AttentionItem["kind"], number> = {
+      "todo-overdue": 0,
+      "event-today": 1,
+      "todo-today": 2,
+      "todo-soon": 3,
+      "event-soon": 4,
+      "thread-unread": 5,
+    };
+    items.sort((a, b) => rank[a.kind] - rank[b.kind]);
+
+    const capped = items.slice(0, ATTENTION_LIMIT);
+    return {
+      items: capped,
+      allCaughtUp: capped.length === 0,
+    };
+  } catch (err) {
+    console.error("[fetchNeedsAttention] threw:", err);
+    return { items: [], allCaughtUp: true };
+  }
+}
+
+
 export interface ParentInsights {
   /** Todos due today (or overdue) and not yet completed. */
   todayTodos: Array<{

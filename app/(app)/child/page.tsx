@@ -1,29 +1,21 @@
-import Link from "next/link";
 import { createServerClient } from "@/lib/supabase/server";
-import { ThreadCard, type ThreadSummary } from "@/components/ThreadCard";
-import { ThreadActionsMenu } from "@/components/ThreadActionsMenu";
 import { RealtimeBoundary } from "@/components/RealtimeBoundary";
-import { HeaderMenu } from "@/components/HeaderMenu";
-import { StatusTabs } from "@/components/StatusTabs";
-import { ChildInsightsRow } from "@/components/insights/ChildInsightsRow";
-import { QuickAccessRow } from "@/components/QuickAccessRow";
-import { VoiceFAB } from "@/components/VoiceFAB";
-import { WeeklyDigestCard } from "@/components/WeeklyDigestCard";
-import { FilteredEmptyState } from "@/components/FilteredEmptyState";
-import { fetchLatestMessagePerThread } from "@/lib/thread-previews";
-import { fetchFamilyMembers, membersById } from "@/lib/family-members";
-import { fetchChildInsights } from "@/lib/insights";
+import { ChildHome } from "./ChildHome";
+import { fetchNeedsAttention } from "@/lib/insights";
 
-
-// PERF-5: cap visible threads per tab. Counts are queried separately so
-// the pill stays accurate even when the family has more than 50 archived.
-const DASHBOARD_LIMIT = 50;
-
-export default async function ChildHome({
-  searchParams,
-}: {
-  searchParams: { status?: string };
-}) {
+/**
+ * Child home entry — v1 port matches parent's shape.
+ *
+ * Drops the activity feed, status tabs, thread list, family code line
+ * under greeting, and ChildInsightsRow (redundant with NeedsAttention).
+ * Adds hero mic + type field routed through the intent classifier +
+ * a single NeedsAttention list.
+ *
+ * VoiceFAB is also removed — the audit specifies "Home keeps the hero
+ * mic; the FAB appears on the other three [tabs]", so home surfaces
+ * the mic in place and won't double up.
+ */
+export default async function ChildPage() {
   const supabase = createServerClient();
   const {
     data: { user },
@@ -37,54 +29,24 @@ export default async function ChildHome({
     .maybeSingle();
   if (!profile?.family_space_id) return null;
 
-  const activeStatus: "open" | "done" =
-    searchParams.status === "done" ? "done" : "open";
-
-  const [
-    familyResult,
-    visibleThreadsResult,
-    openCountResult,
-    doneCountResult,
-    openTodosCountResult,
-    diaryCountResult,
-  ] = await Promise.all([
-      supabase
-        .from("family_spaces")
-        .select("invite_code, name")
-        .eq("id", profile.family_space_id)
-        .maybeSingle(),
-      activeStatus === "done"
-        ? supabase
-            .from("threads")
-            .select(
-              "id, title_vi, title_en, tags, status, updated_at, initiated_by_role",
-            )
-            .eq("family_space_id", profile.family_space_id)
-            .eq("status", "resolved")
-            .is("deleted_at", null)
-            .order("updated_at", { ascending: false })
-            .limit(DASHBOARD_LIMIT)
-        : supabase
-            .from("threads")
-            .select(
-              "id, title_vi, title_en, tags, status, updated_at, initiated_by_role",
-            )
-            .eq("family_space_id", profile.family_space_id)
-            .neq("status", "resolved")
-            .is("deleted_at", null)
-            .order("updated_at", { ascending: false })
-            .limit(DASHBOARD_LIMIT),
+  const [familyResult, needsAttention, countsResult] = await Promise.all([
+    supabase
+      .from("family_spaces")
+      .select("invite_code")
+      .eq("id", profile.family_space_id)
+      .maybeSingle(),
+    fetchNeedsAttention(
+      supabase,
+      profile.family_space_id,
+      user.id,
+      "child",
+    ),
+    Promise.all([
       supabase
         .from("threads")
         .select("*", { count: "exact", head: true })
         .eq("family_space_id", profile.family_space_id)
         .neq("status", "resolved")
-        .is("deleted_at", null),
-      supabase
-        .from("threads")
-        .select("*", { count: "exact", head: true })
-        .eq("family_space_id", profile.family_space_id)
-        .eq("status", "resolved")
         .is("deleted_at", null),
       supabase
         .from("family_todos")
@@ -97,184 +59,25 @@ export default async function ChildHome({
         .select("*", { count: "exact", head: true })
         .eq("family_space_id", profile.family_space_id)
         .is("deleted_at", null),
-    ]);
-
-  const visibleThreads = (visibleThreadsResult.data ?? []) as ThreadSummary[];
-  const openCount = openCountResult.count ?? 0;
-  const doneCount = doneCountResult.count ?? 0;
-  const openTodosCount = openTodosCountResult.count ?? 0;
-  const diaryCount = diaryCountResult.count ?? 0;
-  const family = familyResult.data;
-
-  const [latestByThread, viewsResult, childInsights, familyMembers] = await Promise.all([
-    fetchLatestMessagePerThread(supabase, visibleThreads.map((t) => t.id)),
-    visibleThreads.length > 0
-      ? supabase
-          .from("thread_views")
-          .select("thread_id, last_viewed_at")
-          .eq("user_id", user.id)
-          .in(
-            "thread_id",
-            visibleThreads.map((t) => t.id),
-          )
-      : Promise.resolve({ data: [] as { thread_id: string; last_viewed_at: string }[] }),
-    fetchChildInsights(supabase, profile.family_space_id),
-    fetchFamilyMembers(supabase, profile.family_space_id),
+    ]),
   ]);
 
-  const memberNamesById: Record<string, string> = Object.fromEntries(
-    Object.entries(membersById(familyMembers)).map(([id, m]) => [
-      id,
-      m.display_name,
-    ]),
-  );
-
-  const lastViewedByThread = new Map<string, string>();
-  for (const row of viewsResult.data ?? []) {
-    lastViewedByThread.set(row.thread_id, row.last_viewed_at);
-  }
-  const unreadThreadIds = new Set<string>(
-    visibleThreads
-      .filter((t) => {
-        const last = lastViewedByThread.get(t.id);
-        return !last || t.updated_at > last;
-      })
-      .map((t) => t.id),
-  );
-
-  const displayName = profile.display_name ?? "there";
-  const totalThreads = openCount + doneCount;
+  const [threadsCount, todosCount, diaryCount] = countsResult;
 
   return (
     <RealtimeBoundary
-      tables={["threads", "messages", "checklist_items", "thread_views"]}
+      tables={["threads", "messages", "thread_views", "family_todos", "diary_entries"]}
       channelName={`child-home-${profile.family_space_id}`}
     >
-      <main className="mx-auto max-w-2xl px-6 py-10 space-y-8">
-        <header className="flex items-start justify-between gap-4">
-          <div className="min-w-0 flex-1">
-            <h1 className="text-2xl font-medium truncate">
-              Hi, {displayName}
-            </h1>
-            <p className="text-sm text-muted mt-1">
-              Family code:{" "}
-              <span className="font-medium tracking-widest text-accent">
-                {family?.invite_code ?? "—"}
-              </span>
-            </p>
-          </div>
-          <div className="flex items-center gap-3 shrink-0">
-            <Link
-              href="/child/new-task"
-              className="rounded-card bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-transform active:scale-[0.98]"
-            >
-              New task
-            </Link>
-            <HeaderMenu
-              role="child"
-              language="en"
-              displayName={displayName}
-              inviteCode={family?.invite_code ?? null}
-            />
-          </div>
-        </header>
-
-        <QuickAccessRow
-          language="en"
-          counts={{
-            threads: openCount,
-            todos: openTodosCount,
-            diary: diaryCount,
-          }}
-          hints={{
-            threads: openCount > 0 ? `${openCount} open` : "—",
-            todos: openTodosCount > 0 ? `${openTodosCount} active` : "—",
-            diary: diaryCount > 0 ? `${diaryCount} entries` : "—",
-          }}
-          activityHref="/child"
-        />
-
-        <WeeklyDigestCard language="en" />
-
-        <ChildInsightsRow insights={childInsights} />
-
-        {totalThreads === 0 ? (
-          <FilteredEmptyState
-            title="No activity in this family yet."
-            hint="When a parent asks Noi a question, it appears here automatically."
-            action={{ label: "New task for a parent", href: "/child/new-task" }}
-          />
-        ) : (
-          <section className="space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-sm text-muted uppercase tracking-wide">
-                Activity
-              </h2>
-              <StatusTabs
-                basePath="/child"
-                active={activeStatus}
-                language="en"
-                openCount={openCount}
-                doneCount={doneCount}
-              />
-            </div>
-            {visibleThreads.length > 0 ? (
-              <ul className="space-y-2">
-                {visibleThreads.map((t) => (
-                  <li key={t.id}>
-                    <ThreadCard
-                      thread={t}
-                      language="en"
-                      basePath="/child/thread"
-                      latestMessage={latestByThread[t.id]}
-                      memberNames={memberNamesById}
-                      unread={unreadThreadIds.has(t.id)}
-                      highlight={t.status === "open"}
-                      actions={
-                        <ThreadActionsMenu
-                          threadId={t.id}
-                          language="en"
-                          threadTitle={t.title_en ?? t.title_vi ?? ""}
-                        />
-                      }
-                    />
-                  </li>
-                ))}
-              </ul>
-            ) : activeStatus === "done" ? (
-              <FilteredEmptyState
-                title="Nothing marked done yet."
-                hint={
-                  openCount > 0
-                    ? `${openCount} open ${openCount === 1 ? "thread" : "threads"} still to look at.`
-                    : undefined
-                }
-                secondaryAction={
-                  openCount > 0
-                    ? { label: "See open threads", href: "/child" }
-                    : undefined
-                }
-              />
-            ) : (
-              <FilteredEmptyState
-                title="No open threads right now."
-                hint={
-                  doneCount > 0
-                    ? `${doneCount} ${doneCount === 1 ? "thread" : "threads"} marked done.`
-                    : undefined
-                }
-                action={{ label: "New task for a parent", href: "/child/new-task" }}
-                secondaryAction={
-                  doneCount > 0
-                    ? { label: "See done threads", href: "/child?status=done" }
-                    : undefined
-                }
-              />
-            )}
-          </section>
-        )}
-      </main>
-      <VoiceFAB language="en" />
+      <ChildHome
+        displayName={profile.display_name ?? "there"}
+        familySpaceId={profile.family_space_id}
+        inviteCode={familyResult.data?.invite_code ?? null}
+        needsAttention={needsAttention}
+        threadsCount={threadsCount.count ?? 0}
+        todosCount={todosCount.count ?? 0}
+        diaryCount={diaryCount.count ?? 0}
+      />
     </RealtimeBoundary>
   );
 }
