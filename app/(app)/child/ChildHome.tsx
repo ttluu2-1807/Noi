@@ -6,6 +6,7 @@ import { HeaderMenu } from "@/components/HeaderMenu";
 import { QuickAccessRow } from "@/components/QuickAccessRow";
 import { WeeklyDigestCard } from "@/components/WeeklyDigestCard";
 import { NeedsAttention } from "@/components/NeedsAttention";
+import { UrgentBanner } from "@/components/UrgentBanner";
 import { VoiceInput } from "@/components/VoiceInput";
 import { captureVoiceIntent } from "@/app/(app)/child/voice-capture/actions";
 import { timeOfDayGreeting } from "@/lib/greeting";
@@ -101,6 +102,8 @@ export function ChildHome({
           inviteCode={inviteCode}
         />
       </header>
+
+      <UrgentBanner data={needsAttention} language={language} />
 
       <QuickAccessRow
         language={language}

@@ -11,6 +11,7 @@ import { SuggestedQuestions } from "@/components/SuggestedQuestions";
 import { QuickAccessRow } from "@/components/QuickAccessRow";
 import { WeeklyDigestCard } from "@/components/WeeklyDigestCard";
 import { NeedsAttention } from "@/components/NeedsAttention";
+import { UrgentBanner } from "@/components/UrgentBanner";
 import { timeOfDayGreeting } from "@/lib/greeting";
 import type { NeedsAttention as NeedsAttentionData } from "@/lib/insights";
 import type { Attachment } from "@/lib/storage";
@@ -144,6 +145,11 @@ export function ParentHome({
           inviteCode={inviteCode}
         />
       </header>
+
+      {/* Urgent banner — only renders if there's an overdue todo or a
+          today-due item. Sits above everything so it's the first thing
+          the parent sees when there's real time pressure. */}
+      <UrgentBanner data={needsAttention} language={language} />
 
       <QuickAccessRow
         language={language}

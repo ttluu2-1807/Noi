@@ -137,11 +137,13 @@ async function TodoListSection({
     supabase
       .from("family_todos")
       .select(
-        "id, text_vi, text_en, due_at, assignee_role, is_completed, completed_at, created_at, created_by",
+        "id, text_vi, text_en, due_at, assignee_role, is_completed, completed_at, created_at, created_by, recurrence",
       )
       .eq("family_space_id", familySpaceId)
       .is("deleted_at", null)
+      // Order: overdue/due-soon first, then everything else, then completed.
       .order("is_completed", { ascending: true })
+      .order("due_at", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: false }),
     fetchFamilyMembers(supabase, familySpaceId),
   ]);

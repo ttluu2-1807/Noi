@@ -6,6 +6,7 @@ import { Toast } from "@/components/Toast";
 import { TodoActionsMenu } from "@/components/TodoActionsMenu";
 import { FilteredEmptyState } from "@/components/FilteredEmptyState";
 import { relativeTime } from "@/lib/relative-time";
+import { daysUntil, RECURRENCE_LABELS, type Recurrence } from "@/lib/recurrence";
 import type { Language } from "@/lib/language-detect";
 
 export interface TodoRow {
@@ -18,6 +19,8 @@ export interface TodoRow {
   completed_at: string | null;
   created_at: string;
   created_by: string | null;
+  /** null = one-off. Otherwise the cadence — see lib/recurrence. */
+  recurrence?: Recurrence | null;
 }
 
 interface TodoListProps {
@@ -40,6 +43,10 @@ const T = {
     deleted: "Đã xoá",
     undo: "Hoàn tác",
     by: "bởi",
+    overdue: "Quá hạn",
+    today: "Hôm nay",
+    tomorrow: "Ngày mai",
+    inDays: (n: number) => `Còn ${n} ngày`,
   },
   en: {
     open: "Open",
@@ -53,6 +60,10 @@ const T = {
     deleted: "Deleted",
     undo: "Undo",
     by: "by",
+    overdue: "Overdue",
+    today: "Due today",
+    tomorrow: "Due tomorrow",
+    inDays: (n: number) => `Due in ${n} days`,
   },
 } as const;
 
@@ -261,11 +272,23 @@ function TodoItem({
           </p>
           <div className="flex flex-wrap items-center gap-2 text-body-sm text-muted/80">
             {assigneeBadge && (
-              <span className="rounded-full bg-accent/10 text-accent px-2 py-0.5">
+              <span className="rounded-full bg-green-wash text-green-text px-2 py-0.5">
                 {assigneeBadge}
               </span>
             )}
-            {row.due_at && (
+            {row.recurrence && (
+              <span
+                aria-label={`Recurring: ${RECURRENCE_LABELS[language][row.recurrence]}`}
+                className="inline-flex items-center gap-1 rounded-full bg-line/60 text-ink-3 px-2 py-0.5"
+              >
+                <RecurIcon />
+                {RECURRENCE_LABELS[language][row.recurrence]}
+              </span>
+            )}
+            {row.due_at && !row.is_completed && (
+              <DueBadge iso={row.due_at} t={t} />
+            )}
+            {row.due_at && row.is_completed && (
               <span>
                 {t.due} {relativeTime(row.due_at, language)}
               </span>
@@ -284,4 +307,59 @@ function TodoItem({
       </label>
     </li>
   );
+}
+
+/**
+ * Colored due-date pill. Only shown for open todos with a due_at.
+ * Urgency ladder:
+ *   overdue → clay-wash + clay-deep (loud, "you missed this")
+ *   today   → warn-wash + clay (attention, not alarm)
+ *   ≤ 7d    → warn-wash + ink-2 (soft heads-up)
+ *   > 7d    → line/40 + ink-3 (informational)
+ */
+function DueBadge({
+  iso,
+  t,
+}: {
+  iso: string;
+  t: (typeof T)[Language];
+}) {
+  const n = daysUntil(iso);
+  let label: string;
+  let className: string;
+
+  if (n < 0) {
+    label = t.overdue;
+    className = "bg-clay-wash text-clay-deep font-medium";
+  } else if (n === 0) {
+    label = t.today;
+    className = "bg-warn-wash text-clay font-medium";
+  } else if (n === 1) {
+    label = t.tomorrow;
+    className = "bg-warn-wash text-clay";
+  } else if (n <= 7) {
+    label = t.inDays(n);
+    className = "bg-warn-wash text-ink-2";
+  } else {
+    label = t.inDays(n);
+    className = "bg-line/40 text-ink-3";
+  }
+
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 ${className}`}>
+      {n <= 2 && <DotIcon />}
+      {label}
+    </span>
+  );
+}
+
+function RecurIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3 w-3">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v6h6M20 20v-6h-6M20 4l-6 6M4 20l6-6" />
+    </svg>
+  );
+}
+function DotIcon() {
+  return <span className="inline-block h-1.5 w-1.5 rounded-full bg-current" />;
 }

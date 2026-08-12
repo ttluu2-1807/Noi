@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { VoiceInput } from "@/components/VoiceInput";
 import { LoadingDots } from "@/components/LoadingDots";
 import { dictateTodos, addTodo } from "./actions";
+import { RECURRENCE_LABELS, ROLLOVER_LABELS, type Recurrence, type Rollover } from "@/lib/recurrence";
 import type { Language } from "@/lib/language-detect";
 
 interface TodoComposerProps {
@@ -56,6 +57,10 @@ export function TodoComposer({ language }: TodoComposerProps) {
     | null
   >(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // Recurrence state — null = one-off (default). Rollover only matters
+  // when recurrence is set. Sent as form fields on addTodo.
+  const [recurrence, setRecurrence] = useState<Recurrence | null>(null);
+  const [rollover, setRollover] = useState<Rollover>("reset");
 
   const onDictate = () => {
     if (!text.trim()) return;
@@ -81,10 +86,16 @@ export function TodoComposer({ language }: TodoComposerProps) {
     startTransition(async () => {
       const fd = new FormData();
       fd.set("text", single);
+      if (recurrence) {
+        fd.set("recurrence", recurrence);
+        fd.set("rollover", rollover);
+      }
       const r = await addTodo(fd);
       if (r.ok) {
         setFeedback({ ok: true, message: t.added(1) });
         setText("");
+        setRecurrence(null);
+        setRollover("reset");
       } else {
         setFeedback({ ok: false, message: r.error || t.error });
       }
@@ -117,6 +128,67 @@ export function TodoComposer({ language }: TodoComposerProps) {
         disabled={pending}
         className="w-full rounded-card border border-line bg-white px-4 py-3 leading-relaxed focus:border-accent focus:outline-none resize-none"
       />
+
+      {/* Recurrence picker — small select + rollover chip when set.
+          Only relevant for single-add path (not the split-into-items
+          flow which is for one-off list captures). */}
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <label
+            htmlFor="todo-recurrence"
+            className="text-body-sm text-ink-3"
+          >
+            {language === "vi" ? "Lặp lại:" : "Repeats:"}
+          </label>
+          <select
+            id="todo-recurrence"
+            value={recurrence ?? ""}
+            onChange={(e) =>
+              setRecurrence((e.target.value || null) as Recurrence | null)
+            }
+            disabled={pending}
+            className="rounded-control border border-line bg-surface px-3 py-1.5 text-body-sm focus:border-green focus:outline-none"
+          >
+            <option value="">
+              {language === "vi" ? "Không lặp lại" : "One-off"}
+            </option>
+            <option value="fortnightly">
+              {RECURRENCE_LABELS[language].fortnightly}
+            </option>
+            <option value="monthly">
+              {RECURRENCE_LABELS[language].monthly}
+            </option>
+            <option value="quarterly">
+              {RECURRENCE_LABELS[language].quarterly}
+            </option>
+            <option value="annually">
+              {RECURRENCE_LABELS[language].annually}
+            </option>
+          </select>
+        </div>
+        {recurrence && (
+          <div className="flex flex-wrap items-center gap-2 pl-2 text-body-sm">
+            <span className="text-ink-3">
+              {language === "vi" ? "Khi xong:" : "When done:"}
+            </span>
+            {(["reset", "spawn"] as Rollover[]).map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => setRollover(opt)}
+                disabled={pending}
+                className={`rounded-full px-3 py-1 border transition-colors ${
+                  rollover === opt
+                    ? "border-green bg-green-wash text-green-text font-medium"
+                    : "border-line bg-surface text-ink-3 hover:border-green/40"
+                }`}
+              >
+                {ROLLOVER_LABELS[language][opt]}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="flex flex-wrap items-center justify-end gap-2">
         {pending && <LoadingDots />}

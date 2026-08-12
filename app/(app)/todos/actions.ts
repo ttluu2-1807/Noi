@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createServerClient } from "@/lib/supabase/server";
 import { extractTodos } from "@/lib/todo-extract";
 import { detectLanguage } from "@/lib/language-detect";
+import { nextDueAt, type Recurrence, type Rollover } from "@/lib/recurrence";
 
 /**
  * Server actions for the family-shared to-do list (FAM-2).
@@ -109,6 +110,16 @@ export async function addTodo(
   // that produced it. Owner can be pre-set from the composer/picker.
   const sourceThreadId = String(formData.get("sourceThreadId") ?? "").trim() || null;
   const ownerId = String(formData.get("ownerId") ?? "").trim() || null;
+  const recurrenceRaw = String(formData.get("recurrence") ?? "").trim();
+  const rolloverRaw = String(formData.get("rollover") ?? "").trim();
+  const recurrence: Recurrence | null =
+    recurrenceRaw === "fortnightly" ||
+    recurrenceRaw === "monthly" ||
+    recurrenceRaw === "quarterly" ||
+    recurrenceRaw === "annually"
+      ? recurrenceRaw
+      : null;
+  const rollover: Rollover = rolloverRaw === "spawn" ? "spawn" : "reset";
 
   // Take just the first item — manual add is single-item by intent.
   const item = items[0];
@@ -121,11 +132,15 @@ export async function addTodo(
     assignee_role: item.assignee_role,
     source_thread_id: sourceThreadId,
     owner_id: ownerId,
+    recurrence,
+    rollover: recurrence ? rollover : null,
   });
 
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/todos");
+  revalidatePath("/parent");
+  revalidatePath("/child");
   return { ok: true };
 }
 
@@ -139,6 +154,10 @@ export async function updateTodo(input: {
   id: string;
   text: string;
   due_at: string | null;
+  /** null = one-off (default). Set to change recurrence cadence. */
+  recurrence?: Recurrence | null;
+  /** Only meaningful when recurrence is set. Defaults to "reset". */
+  rollover?: Rollover;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   if (!input.id) return { ok: false, error: "Missing id" };
   const text = input.text.trim();
@@ -170,15 +189,19 @@ export async function updateTodo(input: {
   if (items.length === 0) return { ok: false, error: "Couldn't read that task" };
   const item = items[0];
 
+  const patch: Record<string, unknown> = {
+    text_vi: item.text_vi,
+    text_en: item.text_en,
+    // Prefer the explicit caller-provided due_at if set, else use what
+    // Claude extracted (which may be null if no date was mentioned).
+    due_at: input.due_at ?? item.due_at,
+  };
+  if (input.recurrence !== undefined) patch.recurrence = input.recurrence;
+  if (input.rollover !== undefined) patch.rollover = input.rollover;
+
   const { error } = await supabase
     .from("family_todos")
-    .update({
-      text_vi: item.text_vi,
-      text_en: item.text_en,
-      // Prefer the explicit caller-provided due_at if set, else use what
-      // Claude extracted (which may be null if no date was mentioned).
-      due_at: input.due_at ?? item.due_at,
-    })
+    .update(patch)
     .eq("id", input.id);
   if (error) return { ok: false, error: error.message };
 
@@ -197,25 +220,86 @@ export async function toggleTodo(formData: FormData): Promise<void> {
   } = await supabase.auth.getUser();
   if (!user) return;
 
-  // Fetch current state to flip — avoids a separate "completed" param.
+  // Pull enough state to decide whether this is a recurring toggle and,
+  // if so, which rollover policy to apply.
   const { data: row } = await supabase
     .from("family_todos")
-    .select("is_completed")
+    .select(
+      "family_space_id, is_completed, recurrence, rollover, due_at, text_vi, text_en, assignee_role, owner_id, source_thread_id, sort_order",
+    )
     .eq("id", id)
     .maybeSingle();
   if (!row) return;
 
   const next = !row.is_completed;
-  await supabase
-    .from("family_todos")
-    .update({
-      is_completed: next,
-      completed_by: next ? user.id : null,
-      completed_at: next ? new Date().toISOString() : null,
-    })
-    .eq("id", id);
+  const nowIso = new Date().toISOString();
+  const recurrence = (row.recurrence ?? null) as Recurrence | null;
+  const rollover = (row.rollover ?? "reset") as Rollover;
+
+  // Non-recurring OR un-completing: plain toggle.
+  if (!recurrence || !next) {
+    await supabase
+      .from("family_todos")
+      .update({
+        is_completed: next,
+        completed_by: next ? user.id : null,
+        completed_at: next ? nowIso : null,
+      })
+      .eq("id", id);
+    revalidatePath("/todos");
+    revalidatePath("/parent");
+    revalidatePath("/child");
+    return;
+  }
+
+  // Recurring + toggling to complete. Two policies:
+  //   reset — same row, bump due_at, stay uncompleted (history compact)
+  //   spawn — mark this instance done AND insert a fresh row for next
+  const nextDue = nextDueAt(row.due_at as string | null, recurrence);
+
+  if (rollover === "reset") {
+    await supabase
+      .from("family_todos")
+      .update({
+        // Note: row stays is_completed=false so it lives in the open
+        // bucket — the whole point of a recurring task is you're never
+        // "done" with it forever, just done for this cycle.
+        is_completed: false,
+        completed_by: null,
+        completed_at: null,
+        due_at: nextDue,
+      })
+      .eq("id", id);
+  } else {
+    // spawn: mark this instance completed, insert a new row for next.
+    await Promise.all([
+      supabase
+        .from("family_todos")
+        .update({
+          is_completed: true,
+          completed_by: user.id,
+          completed_at: nowIso,
+        })
+        .eq("id", id),
+      supabase.from("family_todos").insert({
+        family_space_id: row.family_space_id,
+        created_by: user.id,
+        text_vi: row.text_vi,
+        text_en: row.text_en,
+        due_at: nextDue,
+        assignee_role: row.assignee_role,
+        owner_id: row.owner_id ?? null,
+        source_thread_id: row.source_thread_id ?? null,
+        recurrence,
+        rollover,
+        sort_order: row.sort_order ?? 0,
+      }),
+    ]);
+  }
 
   revalidatePath("/todos");
+  revalidatePath("/parent");
+  revalidatePath("/child");
 }
 
 /**
