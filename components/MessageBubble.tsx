@@ -5,6 +5,7 @@ import type { Language } from "@/lib/language-detect";
 import { isTTSSupported, hasVoiceFor, speak, stopSpeaking } from "@/lib/tts";
 import { renderTextWithLinks } from "@/lib/render-text";
 import { MarkdownContent } from "@/components/MarkdownContent";
+import { AnswerContent } from "@/components/AnswerContent";
 import { getAttachmentSignedUrl, type Attachment } from "@/lib/storage";
 
 export interface MessageRow {
@@ -159,13 +160,14 @@ export function MessageBubble({
               : "bg-clay-wash text-ink whitespace-pre-wrap leading-relaxed"
           }`}
         >
-          {/* Assistant messages come from Claude and can include markdown
-              (headings, ordered lists, bold, links). Render them through
-              MarkdownContent so the syntax markers become real elements.
-              Family messages are user-typed prose — keep them plain-text
-              with auto-linking for phones + AU domains. */}
+          {/* Assistant messages come from Claude and follow the answer
+              anatomy: summary → steps → callout → links → optional
+              "Add to your list" section that AnswerContent lifts out
+              as tap-to-add chips. Family messages are user-typed prose;
+              keep them plain-text with auto-linking for phones + AU
+              domains. */}
           {isAssistant ? (
-            <MarkdownContent>{content}</MarkdownContent>
+            <AnswerContent language={lang}>{content}</AnswerContent>
           ) : (
             renderTextWithLinks(content)
           )}

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { LoadingDots } from "./LoadingDots";
-import { MarkdownContent } from "@/components/MarkdownContent";
+import { AnswerContent } from "@/components/AnswerContent";
 import type { Language } from "@/lib/language-detect";
 import type { Attachment } from "@/lib/storage";
 
@@ -136,9 +136,11 @@ export function StreamingResponse({
     <div className="space-y-3">
       {text ? (
         // Stream tokens are Claude markdown — render live through the
-        // markdown component so headings + lists + bold appear as
-        // structure while they stream, not raw ** and ## characters.
-        <MarkdownContent>{text}</MarkdownContent>
+        // answer anatomy renderer so headings, ordered lists, bold, and
+        // the "Add to your list" chip strip all appear as structure as
+        // they stream. splitAnswerAnatomy handles partial streams
+        // (returns no chips until the heading actually arrives).
+        <AnswerContent language={language}>{text}</AnswerContent>
       ) : (
         <LoadingDots />
       )}
