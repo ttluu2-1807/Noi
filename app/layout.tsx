@@ -18,6 +18,15 @@ export const metadata: Metadata = {
   description:
     "Nối — a bilingual life admin assistant for Vietnamese-speaking families in Australia.",
   manifest: "/manifest.json",
+  icons: {
+    // Browser tab favicon — 48px PNG in .ico.
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    // iOS home-screen icon (needed for the PWA install + push flow).
+    apple: [{ url: "/icon-180.png", sizes: "180x180" }],
+  },
   appleWebApp: {
     capable: true,
     title: "Noi",
