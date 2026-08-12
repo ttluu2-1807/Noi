@@ -1,9 +1,15 @@
 import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
+import { TabBar } from "@/components/TabBar";
+import type { Language } from "@/lib/language-detect";
 
 /**
  * Auth guard for all authenticated routes. Rejects unauthenticated users
  * to /login and users without a complete profile to /setup or /join.
+ *
+ * Also renders the persistent bottom TabBar (Home / Threads / To-dos /
+ * Diary) per audit T3. Content pages should reserve pb-24 or similar on
+ * their main container so the tail content stays clear of the bar.
  */
 export default async function AppLayout({
   children,
@@ -37,5 +43,15 @@ export default async function AppLayout({
     redirect("/onboarding");
   }
 
-  return <>{children}</>;
+  const role = profile.role as "parent" | "child";
+  const language = (profile.language_preference ?? "vi") as Language;
+
+  return (
+    <>
+      {/* Content — bottom padding leaves room for the fixed TabBar +
+          any inline FAB. The TabBar itself sits above safe-area. */}
+      <div className="pb-24">{children}</div>
+      <TabBar role={role} language={language} />
+    </>
+  );
 }
