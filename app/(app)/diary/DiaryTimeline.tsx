@@ -143,7 +143,7 @@ function DiaryCard({
             <KindIcon kind={row.kind} />
             <span className="truncate">{title}</span>
           </h3>
-          <span className="shrink-0 text-xs px-2 py-0.5 rounded-full bg-line/60 text-muted">
+          <span className="shrink-0 text-body-sm px-2 py-0.5 rounded-full bg-line/60 text-muted">
             {KIND_LABEL[language][row.kind]}
           </span>
         </div>
@@ -163,7 +163,7 @@ function DiaryCard({
           </p>
         )}
 
-        <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted/80">
+        <div className="flex flex-wrap items-center gap-1.5 text-body-sm text-muted/80">
           {(row.tags ?? []).slice(0, 4).map((tag) => {
             const c = tagColors(tag);
             return (

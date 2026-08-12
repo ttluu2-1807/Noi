@@ -131,7 +131,7 @@ export function ThreadCard({
             <span className="truncate">{primary}</span>
           </h3>
           <span
-            className={`shrink-0 text-xs px-2 py-0.5 rounded-full ${
+            className={`shrink-0 text-body-sm px-2 py-0.5 rounded-full ${
               status === "resolved"
                 ? "bg-accent/10 text-accent"
                 : "bg-line/60 text-muted"
@@ -170,7 +170,7 @@ export function ThreadCard({
         )}
 
         {/* Meta row: tags (colour-coded) + relative time */}
-        <div className="flex items-center gap-1.5 flex-wrap text-xs text-muted/80">
+        <div className="flex items-center gap-1.5 flex-wrap text-body-sm text-muted/80">
           {(thread.tags ?? []).slice(0, 4).map((tag) => {
             const c = tagColors(tag);
             return (

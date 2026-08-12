@@ -49,7 +49,7 @@ export function DayDivider({ iso, language }: DayDividerProps) {
   return (
     <div className="flex items-center gap-3 my-4" role="separator" aria-label={label}>
       <div className="flex-1 h-px bg-line" />
-      <span className="text-xs text-muted/80 uppercase tracking-wide">{label}</span>
+      <span className="text-body-sm text-muted/80 uppercase tracking-wide">{label}</span>
       <div className="flex-1 h-px bg-line" />
     </div>
   );

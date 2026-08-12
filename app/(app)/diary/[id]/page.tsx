@@ -130,7 +130,7 @@ export default async function DiaryDetailPage({
 
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1 space-y-2">
-              <span className="inline-block text-xs px-2 py-0.5 rounded-full bg-line/60 text-muted">
+              <span className="inline-block text-body-sm px-2 py-0.5 rounded-full bg-line/60 text-muted">
                 {kindLabel}
               </span>
               <h1 className="text-2xl font-medium leading-snug">{title}</h1>
@@ -138,7 +138,7 @@ export default async function DiaryDetailPage({
                 <p className="text-sm text-muted">{formattedDate}</p>
               )}
               {loggedByName && (
-                <p className="text-xs text-muted/80">
+                <p className="text-body-sm text-muted/80">
                   {t.loggedBy} {loggedByName}
                 </p>
               )}
@@ -155,7 +155,7 @@ export default async function DiaryDetailPage({
 
         {context && (
           <section className="rounded-card border border-line bg-accent/5 p-5 space-y-2">
-            <div className="text-xs uppercase tracking-wide text-accent">
+            <div className="text-body-sm uppercase tracking-wide text-accent">
               {t.why}
             </div>
             <p className="whitespace-pre-wrap leading-relaxed italic">
@@ -166,7 +166,7 @@ export default async function DiaryDetailPage({
 
         {attachments.length > 0 && (
           <section className="space-y-2">
-            <div className="text-xs uppercase tracking-wide text-muted">
+            <div className="text-body-sm uppercase tracking-wide text-muted">
               {t.photos}
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -186,7 +186,7 @@ export default async function DiaryDetailPage({
         )}
 
         {(entry.tags ?? []).length > 0 && (
-          <section className="flex flex-wrap items-center gap-1.5 text-xs">
+          <section className="flex flex-wrap items-center gap-1.5 text-body-sm">
             {(entry.tags as string[]).map((tag) => {
               const c = tagColors(tag);
               return (

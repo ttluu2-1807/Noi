@@ -97,7 +97,7 @@ export function TodoComposer({ language }: TodoComposerProps) {
         <h2 className="text-sm uppercase tracking-wide text-muted">
           {t.title}
         </h2>
-        <p className="text-xs text-muted/80 mt-1">{t.voiceHint}</p>
+        <p className="text-body-sm text-muted/80 mt-1">{t.voiceHint}</p>
       </div>
 
       <VoiceInput

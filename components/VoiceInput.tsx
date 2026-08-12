@@ -108,13 +108,13 @@ export function VoiceInput({
         ) : active ? (
           <p>{placeholder ?? (language === "vi" ? "Đang nghe..." : "Listening...")}</p>
         ) : (
-          <p className="text-xs text-muted/80">
+          <p className="text-body-sm text-muted/80">
             {language === "vi"
               ? "Nhấn để nói. Nhấn lần nữa để dừng."
               : "Tap to speak. Tap again to stop."}
           </p>
         )}
-        {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
+        {error && <p className="text-body-sm text-red-600 mt-1">{error}</p>}
       </div>
     </div>
   );

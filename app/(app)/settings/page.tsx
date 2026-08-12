@@ -105,7 +105,7 @@ export default async function SettingsPage() {
       <section className="rounded-card border border-line bg-white p-5 space-y-3">
         <div>
           <div className="text-sm text-muted">{t.language}</div>
-          <p className="text-xs text-muted/80 mt-1">{t.languageHelp}</p>
+          <p className="text-body-sm text-muted/80 mt-1">{t.languageHelp}</p>
         </div>
         <form action={updateLanguagePreference} className="grid grid-cols-2 gap-2">
           {(["vi", "en"] as const).map((code) => (
@@ -129,7 +129,7 @@ export default async function SettingsPage() {
       <section className="rounded-card border border-line bg-white p-5 space-y-3">
         <div>
           <div className="text-sm text-muted">{t.autoTts}</div>
-          <p className="text-xs text-muted/80 mt-1">{t.autoTtsHelp}</p>
+          <p className="text-body-sm text-muted/80 mt-1">{t.autoTtsHelp}</p>
         </div>
         <form action={updateAutoReadResponses} className="grid grid-cols-2 gap-2">
           {(["on", "off"] as const).map((value) => {
@@ -158,7 +158,7 @@ export default async function SettingsPage() {
         <section className="rounded-card border border-line bg-white p-5 space-y-3">
           <div>
             <div className="text-sm text-muted">{t.code}</div>
-            <p className="text-xs text-muted/80 mt-1">{t.codeHelp}</p>
+            <p className="text-body-sm text-muted/80 mt-1">{t.codeHelp}</p>
           </div>
           <CopyableCode code={family.invite_code} />
         </section>

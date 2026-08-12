@@ -228,7 +228,7 @@ export function DiaryComposer({
           fall back to the old behaviour so the user never loses their
           words. */}
       <section className="rounded-card border border-line bg-white p-4 space-y-3">
-        <p className="text-xs text-muted">{t.voiceHint}</p>
+        <p className="text-body-sm text-muted">{t.voiceHint}</p>
         <VoiceInput
           language={language}
           onTranscript={async (transcript) => {
@@ -273,7 +273,7 @@ export function DiaryComposer({
           }}
         />
         {extracting && (
-          <div className="flex items-center gap-2 text-xs text-muted">
+          <div className="flex items-center gap-2 text-body-sm text-muted">
             <LoadingDots />
             {language === "vi"
               ? "Đang sắp xếp các trường…"

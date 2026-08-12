@@ -125,14 +125,14 @@ export function TrashList({ threads, todos, diary, language }: TrashListProps) {
                 >
                   <div className="min-w-0 flex-1">
                     <p className="font-medium text-ink truncate">{title}</p>
-                    <p className="text-xs text-muted/80 mt-1">
+                    <p className="text-body-sm text-muted/80 mt-1">
                       {t.deletedAt} {relativeTime(row.deleted_at, language)}
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => onRestoreThread(row.id)}
-                    className="shrink-0 rounded-card border border-line bg-white px-3 py-1.5 text-xs text-ink hover:border-accent/40 transition-transform active:scale-95"
+                    className="shrink-0 rounded-card border border-line bg-white px-3 py-1.5 text-body-sm text-ink hover:border-accent/40 transition-transform active:scale-95"
                   >
                     {t.restore}
                   </button>
@@ -159,14 +159,14 @@ export function TrashList({ threads, todos, diary, language }: TrashListProps) {
                 >
                   <div className="min-w-0 flex-1">
                     <p className="font-medium text-ink truncate">{title}</p>
-                    <p className="text-xs text-muted/80 mt-1">
+                    <p className="text-body-sm text-muted/80 mt-1">
                       {t.deletedAt} {relativeTime(row.deleted_at, language)}
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => onRestoreDiary(row.id)}
-                    className="shrink-0 rounded-card border border-line bg-white px-3 py-1.5 text-xs text-ink hover:border-accent/40 transition-transform active:scale-95"
+                    className="shrink-0 rounded-card border border-line bg-white px-3 py-1.5 text-body-sm text-ink hover:border-accent/40 transition-transform active:scale-95"
                   >
                     {t.restore}
                   </button>
@@ -192,14 +192,14 @@ export function TrashList({ threads, todos, diary, language }: TrashListProps) {
                 >
                   <div className="min-w-0 flex-1">
                     <p className="text-ink truncate">{text}</p>
-                    <p className="text-xs text-muted/80 mt-1">
+                    <p className="text-body-sm text-muted/80 mt-1">
                       {t.deletedAt} {relativeTime(row.deleted_at, language)}
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => onRestoreTodo(row.id)}
-                    className="shrink-0 rounded-card border border-line bg-white px-3 py-1.5 text-xs text-ink hover:border-accent/40 transition-transform active:scale-95"
+                    className="shrink-0 rounded-card border border-line bg-white px-3 py-1.5 text-body-sm text-ink hover:border-accent/40 transition-transform active:scale-95"
                   >
                     {t.restore}
                   </button>

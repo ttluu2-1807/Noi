@@ -146,7 +146,7 @@ export function MessageBubble({
   return (
     <div className={`space-y-1 animate-spring-in ${isAssistant ? "" : "ml-6"}`}>
       {roleLabel && (
-        <div className="text-xs text-muted">{roleLabel}</div>
+        <div className="text-body-sm text-muted">{roleLabel}</div>
       )}
       {message.attachments && message.attachments.length > 0 && (
         <AttachmentGrid attachments={message.attachments} />
@@ -171,7 +171,7 @@ export function MessageBubble({
           )}
         </div>
       )}
-      <div className="flex items-center gap-3 text-xs text-muted">
+      <div className="flex items-center gap-3 text-body-sm text-muted">
         {showTTS && content.trim().length > 0 && isTTSSupported() && hasVoiceFor(lang) && (
           <button
             type="button"
@@ -245,7 +245,7 @@ function AttachmentThumb({ attachment }: { attachment: Attachment }) {
 
   if (failed) {
     return (
-      <div className="h-32 w-32 flex items-center justify-center rounded-card border border-line bg-bg text-xs text-muted">
+      <div className="h-32 w-32 flex items-center justify-center rounded-card border border-line bg-bg text-body-sm text-muted">
         Image unavailable
       </div>
     );

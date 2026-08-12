@@ -66,7 +66,7 @@ export function TodayTodosBanner({ todos, language }: TodayTodosBannerProps) {
             ))}
           </ul>
           {todos.length > visible.length && (
-            <p className="mt-2 text-xs text-accent">
+            <p className="mt-2 text-body-sm text-accent">
               {t.seeAll} ({todos.length}) →
             </p>
           )}

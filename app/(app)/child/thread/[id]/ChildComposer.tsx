@@ -46,7 +46,7 @@ export function ChildComposer({ threadId, familySpaceId }: ChildComposerProps) {
   if (askingNoi) {
     return (
       <section className="rounded-card border border-line bg-white p-5 space-y-4">
-        <div className="flex items-center gap-2 text-xs text-muted uppercase tracking-wide">
+        <div className="flex items-center gap-2 text-body-sm text-muted uppercase tracking-wide">
           <span className="rounded-full bg-green-wash text-green-text px-2 py-0.5">Ask Noi</span>
           Updating with your context…
         </div>
@@ -108,8 +108,8 @@ export function ChildComposer({ threadId, familySpaceId }: ChildComposerProps) {
   return (
     <section className="rounded-card border border-line bg-white p-5 space-y-4">
       <div className="flex items-center gap-2">
-        <span className="text-xs text-muted">Send to:</span>
-        <div className="inline-flex rounded-full border border-line bg-bg p-0.5 text-xs">
+        <span className="text-body-sm text-muted">Send to:</span>
+        <div className="inline-flex rounded-full border border-line bg-bg p-0.5 text-body-sm">
           <button
             type="button"
             onClick={() => setDestination("parent")}

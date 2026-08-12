@@ -106,7 +106,7 @@ export default async function ChildThreadPage({
                 value={thread.status === "resolved" ? "open" : "resolved"}
               />
               <button
-                className={`shrink-0 rounded-full px-3 py-1 text-xs transition-transform active:scale-95 ${
+                className={`shrink-0 rounded-full px-3 py-1 text-body-sm transition-transform active:scale-95 ${
                   thread.status === "resolved"
                     ? "bg-accent/10 text-accent"
                     : "bg-white border border-line text-muted hover:text-ink"

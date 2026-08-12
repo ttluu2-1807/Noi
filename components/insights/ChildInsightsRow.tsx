@@ -43,7 +43,7 @@ export function ChildInsightsRow({ insights }: ChildInsightsRowProps) {
             href="/child"
             className="block rounded-card border border-line bg-white p-4 space-y-2 hover:border-accent/40 hover:shadow-sm transition-all active:scale-[0.995] animate-fade-rise"
           >
-            <h3 className="text-xs text-muted uppercase tracking-wide">
+            <h3 className="text-body-sm text-muted uppercase tracking-wide">
               This week
             </h3>
             <dl className="space-y-1 text-sm">
@@ -61,7 +61,7 @@ export function ChildInsightsRow({ insights }: ChildInsightsRowProps) {
               </div>
             </dl>
             {parentLastActiveDays !== null && parentLastActiveDays >= 7 && (
-              <p className="text-xs text-amber-700 pt-1 border-t border-line">
+              <p className="text-body-sm text-amber-700 pt-1 border-t border-line">
                 Parent hasn&apos;t asked anything in {parentLastActiveDays} days
               </p>
             )}
@@ -74,21 +74,21 @@ export function ChildInsightsRow({ insights }: ChildInsightsRowProps) {
             href="/todos"
             className="block rounded-card border border-line bg-white p-4 space-y-2 hover:border-accent/40 hover:shadow-sm transition-all active:scale-[0.995] animate-fade-rise"
           >
-            <h3 className="text-xs text-muted uppercase tracking-wide">
+            <h3 className="text-body-sm text-muted uppercase tracking-wide">
               Due soon
             </h3>
             <ul className="space-y-1 text-sm">
               {dueSoon.slice(0, 3).map((t) => (
                 <li key={t.id} className="space-y-0.5">
                   <p className="text-ink line-clamp-1">{t.text_en}</p>
-                  <p className="text-xs text-muted">
+                  <p className="text-body-sm text-muted">
                     {relativeTime(t.due_at, "en")}
                   </p>
                 </li>
               ))}
             </ul>
             {dueSoon.length > 3 && (
-              <p className="text-xs text-accent">
+              <p className="text-body-sm text-accent">
                 See all ({dueSoon.length}) →
               </p>
             )}
@@ -101,7 +101,7 @@ export function ChildInsightsRow({ insights }: ChildInsightsRowProps) {
             href="/diary?kind=decision"
             className="block rounded-card border border-line bg-white p-4 space-y-2 hover:border-accent/40 hover:shadow-sm transition-all active:scale-[0.995] animate-fade-rise"
           >
-            <h3 className="text-xs text-muted uppercase tracking-wide">
+            <h3 className="text-body-sm text-muted uppercase tracking-wide">
               Recent decisions
             </h3>
             <ul className="space-y-2 text-sm">
@@ -112,7 +112,7 @@ export function ChildInsightsRow({ insights }: ChildInsightsRowProps) {
                     <span className="truncate">{d.title_en}</span>
                   </p>
                   {d.context_en && (
-                    <p className="text-xs text-muted italic line-clamp-2">
+                    <p className="text-body-sm text-muted italic line-clamp-2">
                       {d.context_en}
                     </p>
                   )}

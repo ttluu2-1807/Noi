@@ -136,7 +136,7 @@ export function AttachmentPicker({
             </svg>
             {t.add}
           </button>
-          {showHint && <p className="text-xs text-muted/80">{t.hint}</p>}
+          {showHint && <p className="text-body-sm text-muted/80">{t.hint}</p>}
         </div>
       )}
 
@@ -149,7 +149,7 @@ export function AttachmentPicker({
             className="h-24 w-24 rounded-card object-cover border border-line"
           />
           {uploading && (
-            <div className="absolute inset-0 flex items-center justify-center rounded-card bg-black/50 text-xs text-white">
+            <div className="absolute inset-0 flex items-center justify-center rounded-card bg-black/50 text-body-sm text-white">
               {t.uploading}
             </div>
           )}
@@ -167,7 +167,7 @@ export function AttachmentPicker({
       )}
 
       {error && (
-        <p className="text-xs text-red-600" role="alert">
+        <p className="text-body-sm text-red-600" role="alert">
           {error}
         </p>
       )}

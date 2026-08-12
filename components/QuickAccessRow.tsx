@@ -105,9 +105,9 @@ function Tile({
       </span>
       <span className="text-sm font-medium text-ink">{label}</span>
       {hint !== undefined ? (
-        <span className="text-xs text-muted truncate w-full">{hint}</span>
+        <span className="text-body-sm text-muted truncate w-full">{hint}</span>
       ) : count !== undefined ? (
-        <span className="text-xs text-muted">{count}</span>
+        <span className="text-body-sm text-muted">{count}</span>
       ) : null}
     </Link>
   );

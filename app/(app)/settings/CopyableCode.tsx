@@ -22,7 +22,7 @@ export function CopyableCode({ code }: { code: string }) {
       <span className="text-2xl font-medium tracking-widest text-accent">
         {code}
       </span>
-      <span className="text-xs text-muted group-hover:text-ink">
+      <span className="text-body-sm text-muted group-hover:text-ink">
         {copied ? "Copied!" : "Tap to copy"}
       </span>
     </button>

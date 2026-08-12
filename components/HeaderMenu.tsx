@@ -116,7 +116,7 @@ export function HeaderMenu({ role, language, displayName, inviteCode }: HeaderMe
         >
           {inviteCode && (
             <div className="px-4 py-3 border-b border-line">
-              <div className="text-xs text-muted">{t.familyCode}</div>
+              <div className="text-body-sm text-muted">{t.familyCode}</div>
               <div className="mt-1 flex items-center justify-between gap-2">
                 <span className="text-lg font-medium tracking-widest text-accent">
                   {inviteCode}
@@ -124,7 +124,7 @@ export function HeaderMenu({ role, language, displayName, inviteCode }: HeaderMe
                 <button
                   type="button"
                   onClick={copyCode}
-                  className="text-xs text-muted hover:text-ink transition-colors active:scale-95"
+                  className="text-body-sm text-muted hover:text-ink transition-colors active:scale-95"
                 >
                   {copied ? t.copied : t.copy}
                 </button>

@@ -234,7 +234,7 @@ export function NewTaskFlow() {
                   type="button"
                   onClick={() => onRefine(chip.prompt)}
                   disabled={pending}
-                  className="rounded-full border border-line bg-white px-3 py-1 text-xs text-ink hover:border-accent/40 disabled:opacity-40 transition-transform active:scale-95"
+                  className="rounded-full border border-line bg-white px-3 py-1 text-body-sm text-ink hover:border-accent/40 disabled:opacity-40 transition-transform active:scale-95"
                 >
                   {chip.label}
                 </button>
@@ -265,7 +265,7 @@ export function NewTaskFlow() {
               </button>
             </div>
             {pending && (
-              <div className="flex items-center gap-2 text-xs text-muted">
+              <div className="flex items-center gap-2 text-body-sm text-muted">
                 <LoadingDots />
                 Refining…
               </div>

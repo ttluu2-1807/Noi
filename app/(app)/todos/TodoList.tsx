@@ -259,7 +259,7 @@ function TodoItem({
           >
             {label}
           </p>
-          <div className="flex flex-wrap items-center gap-2 text-xs text-muted/80">
+          <div className="flex flex-wrap items-center gap-2 text-body-sm text-muted/80">
             {assigneeBadge && (
               <span className="rounded-full bg-accent/10 text-accent px-2 py-0.5">
                 {assigneeBadge}

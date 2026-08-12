@@ -50,7 +50,7 @@ export function StatusTabs({
             }`}
           >
             {tab.label}
-            <span className={`ml-1.5 text-xs ${isActive ? "opacity-80" : "opacity-60"}`}>
+            <span className={`ml-1.5 text-body-sm ${isActive ? "opacity-80" : "opacity-60"}`}>
               ({tab.count})
             </span>
           </Link>

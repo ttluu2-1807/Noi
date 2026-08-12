@@ -251,7 +251,7 @@ function DiaryFilterPills({
             {p.label}
             {p.count > 0 && (
               <span
-                className={`ml-1.5 text-xs ${
+                className={`ml-1.5 text-body-sm ${
                   isActive ? "opacity-80" : "opacity-60"
                 }`}
               >

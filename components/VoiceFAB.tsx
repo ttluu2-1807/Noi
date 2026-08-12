@@ -185,7 +185,7 @@ export function VoiceFAB({ language = "en" }: { language?: Language }) {
               <>
                 <div className="text-center space-y-1">
                   <div className="text-sm text-muted">{t.listening}</div>
-                  <p className="text-xs text-muted/70">{t.hint}</p>
+                  <p className="text-body-sm text-muted/70">{t.hint}</p>
                 </div>
                 <div className="flex flex-col items-center gap-4">
                   <button
@@ -211,7 +211,7 @@ export function VoiceFAB({ language = "en" }: { language?: Language }) {
                   </p>
                 )}
                 {!transcript && (
-                  <div className="space-y-2 text-xs text-muted/80">
+                  <div className="space-y-2 text-body-sm text-muted/80">
                     <div className="font-medium">{t.examplesHeading}</div>
                     <ul className="space-y-1 list-disc list-inside">
                       {t.examples.map((ex) => (

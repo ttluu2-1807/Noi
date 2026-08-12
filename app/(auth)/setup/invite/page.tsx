@@ -33,7 +33,7 @@ export default function InviteCodePage({
         Continue to dashboard
       </Link>
 
-      <p className="text-xs text-muted">
+      <p className="text-body-sm text-muted">
         You can find this code again in Settings later.
       </p>
     </div>

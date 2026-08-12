@@ -4,6 +4,13 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
 
+/**
+ * Resend the magic link + OTP token. Same signInWithOtp call — Supabase
+ * decides what the email contains based on the template configured in
+ * Auth → Email Templates → "Magic Link". Our template renders both the
+ * URL (for one-tap users) and the {{ .Token }} 6-digit code (for
+ * cross-context / cross-device users) so either path works.
+ */
 export async function resendMagicLink(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   if (!email) redirect("/login");
@@ -17,4 +24,59 @@ export async function resendMagicLink(formData: FormData) {
   });
 
   redirect(`/verify?email=${encodeURIComponent(email)}&resent=1`);
+}
+
+/**
+ * Exchange the 6-digit code the user typed in for a Supabase session,
+ * WITHOUT going through the PKCE URL flow.
+ *
+ * Why this exists: the magic-link URL flow requires the PKCE code_verifier
+ * cookie set on the "send" tap to still be present when the callback URL
+ * is opened. That's brittle for elderly users — Mail on iOS sometimes
+ * opens links in an isolated WebKit context that doesn't share Safari's
+ * cookies; ITP can evict the cookie; the user might switch devices
+ * between requesting and clicking. The OTP-code path sidesteps all of
+ * it: the code is exchanged directly for a session, no cookie needed.
+ *
+ * On success we redirect to "/", which then routes based on profile
+ * state (setup vs onboarding vs home). On failure we send the user
+ * back to /verify with an inline error.
+ */
+export async function verifyOtpCode(formData: FormData) {
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const token = String(formData.get("code") ?? "").replace(/\s|-/g, "");
+
+  if (!email || !token) {
+    redirect(
+      `/verify?email=${encodeURIComponent(email)}&error=${encodeURIComponent(
+        "Please enter the 6-digit code from the email.",
+      )}`,
+    );
+  }
+  if (token.length !== 6 || !/^\d{6}$/.test(token)) {
+    redirect(
+      `/verify?email=${encodeURIComponent(email)}&error=${encodeURIComponent(
+        "The code should be 6 digits.",
+      )}`,
+    );
+  }
+
+  const supabase = createServerClient();
+  const { error } = await supabase.auth.verifyOtp({
+    email,
+    token,
+    // "email" == the OTP token type sent by signInWithOtp. Not to be
+    // confused with "magiclink", which is the URL-flow token type.
+    type: "email",
+  });
+
+  if (error) {
+    redirect(
+      `/verify?email=${encodeURIComponent(email)}&error=${encodeURIComponent(
+        error.message,
+      )}`,
+    );
+  }
+
+  redirect("/");
 }
