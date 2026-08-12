@@ -1,7 +1,9 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
 import { RealtimeBoundary } from "@/components/RealtimeBoundary";
+import { CapturedToast } from "@/components/CapturedToast";
 import { tagColors } from "@/lib/tags";
 import { DiaryDetailActions } from "./DiaryDetailActions";
 import type { Language } from "@/lib/language-detect";
@@ -217,6 +219,11 @@ export default async function DiaryDetailPage({
           </section>
         )}
       </main>
+      {/* "Wrong home?" toast — only fires when this page was landed on
+          via the voice-capture flow (query params carry captured=diary). */}
+      <Suspense fallback={null}>
+        <CapturedToast expected="diary" language={language} />
+      </Suspense>
     </RealtimeBoundary>
   );
 }

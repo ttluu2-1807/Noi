@@ -5,6 +5,7 @@ import { RealtimeBoundary } from "@/components/RealtimeBoundary";
 import { HeaderMenu } from "@/components/HeaderMenu";
 import { TodoComposer } from "./TodoComposer";
 import { TodoList, type TodoRow } from "./TodoList";
+import { CapturedToast } from "@/components/CapturedToast";
 import { fetchFamilyMembers, membersById } from "@/lib/family-members";
 import type { Language } from "@/lib/language-detect";
 
@@ -111,6 +112,11 @@ export default async function TodosPage() {
           />
         </Suspense>
       </main>
+      {/* "Wrong home?" toast shown when the voice FAB just added a
+          todo here. useSearchParams needs a Suspense boundary. */}
+      <Suspense fallback={null}>
+        <CapturedToast expected="todo" language={language} />
+      </Suspense>
     </RealtimeBoundary>
   );
 }

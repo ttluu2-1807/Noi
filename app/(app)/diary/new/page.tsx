@@ -20,7 +20,11 @@ const T = {
   },
 } as const;
 
-export default async function NewDiaryEntryPage() {
+export default async function NewDiaryEntryPage({
+  searchParams,
+}: {
+  searchParams: { prefill?: string };
+}) {
   const supabase = createServerClient();
   const {
     data: { user },
@@ -37,6 +41,7 @@ export default async function NewDiaryEntryPage() {
   const t = T[language];
 
   const familyTags = await listFamilyTags(supabase, profile.family_space_id);
+  const prefill = searchParams.prefill?.trim() || null;
 
   return (
     <main className="mx-auto max-w-md px-6 py-10 space-y-6">
@@ -65,6 +70,9 @@ export default async function NewDiaryEntryPage() {
         familyTags={familyTags}
         familySpaceId={profile.family_space_id}
         language={language}
+        // Prefill from the "Move to Diary" flow — the composer picks
+        // it up as the body seed; user finalises + saves.
+        initialBody={prefill}
       />
     </main>
   );
