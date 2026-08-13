@@ -109,7 +109,9 @@ export function AskForHelp({
               {t.active}
             </p>
             {escalationNote && (
-              <p className="text-body text-ink italic">"{escalationNote}"</p>
+              <p className="text-body text-ink italic">
+                &ldquo;{escalationNote}&rdquo;
+              </p>
             )}
           </div>
         </div>
