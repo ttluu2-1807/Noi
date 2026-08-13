@@ -109,6 +109,7 @@ export default async function TodosPage() {
           <TodoListSection
             familySpaceId={profile.family_space_id}
             language={language}
+            role={profile.role as "parent" | "child"}
           />
         </Suspense>
       </main>
@@ -128,16 +129,18 @@ export default async function TodosPage() {
 async function TodoListSection({
   familySpaceId,
   language,
+  role,
 }: {
   familySpaceId: string;
   language: Language;
+  role: "parent" | "child";
 }) {
   const supabase = createServerClient();
   const [todosResult, members] = await Promise.all([
     supabase
       .from("family_todos")
       .select(
-        "id, text_vi, text_en, due_at, assignee_role, is_completed, completed_at, created_at, created_by, recurrence",
+        "id, text_vi, text_en, due_at, assignee_role, is_completed, completed_at, created_at, created_by, recurrence, source_thread_id, owner_id",
       )
       .eq("family_space_id", familySpaceId)
       .is("deleted_at", null)
@@ -147,14 +150,38 @@ async function TodoListSection({
       .order("created_at", { ascending: false }),
     fetchFamilyMembers(supabase, familySpaceId),
   ]);
+  const rows = (todosResult.data ?? []) as TodoRow[];
+
+  // Resolve thread titles for any todos that link back to a source
+  // thread — one round-trip for the union of ids. Titles feed the
+  // merged-list group headers ("From: Renewing Mum's Medicare card →").
+  const threadIds = Array.from(
+    new Set(rows.map((r) => r.source_thread_id).filter((v): v is string => !!v)),
+  );
+  const threadTitles: Record<string, { title_vi: string | null; title_en: string | null }> = {};
+  if (threadIds.length > 0) {
+    const { data: threads } = await supabase
+      .from("threads")
+      .select("id, title_vi, title_en")
+      .in("id", threadIds);
+    for (const t of threads ?? []) {
+      threadTitles[t.id as string] = {
+        title_vi: (t.title_vi ?? null) as string | null,
+        title_en: (t.title_en ?? null) as string | null,
+      };
+    }
+  }
+
   const memberNames: Record<string, string> = Object.fromEntries(
     Object.entries(membersById(members)).map(([id, m]) => [id, m.display_name]),
   );
   return (
     <TodoList
-      items={(todosResult.data ?? []) as TodoRow[]}
+      items={rows}
       language={language}
       memberNames={memberNames}
+      threadTitles={threadTitles}
+      threadBasePath={role === "parent" ? "/parent/thread" : "/child/thread"}
     />
   );
 }

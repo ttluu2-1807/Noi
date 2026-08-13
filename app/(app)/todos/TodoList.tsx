@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { toggleTodo, deleteTodo, restoreTodo } from "./actions";
+import Link from "next/link";
 import { Toast } from "@/components/Toast";
 import { TodoActionsMenu } from "@/components/TodoActionsMenu";
 import { FilteredEmptyState } from "@/components/FilteredEmptyState";
@@ -21,13 +22,22 @@ export interface TodoRow {
   created_by: string | null;
   /** null = one-off. Otherwise the cadence — see lib/recurrence. */
   recurrence?: Recurrence | null;
+  /** When set, this todo was extracted from a thread — /todos groups
+   *  it under a header linking back to that thread. */
+  source_thread_id?: string | null;
+  /** Specific person responsible; null renders as "Anyone". */
+  owner_id?: string | null;
 }
 
 interface TodoListProps {
   items: TodoRow[];
   language: Language;
-  /** user_id -> display_name. Used to render "by Mai" on each todo. */
+  /** user_id -> display_name. Used for creator + owner labels. */
   memberNames: Record<string, string>;
+  /** thread_id -> {title_vi, title_en} for group headers. */
+  threadTitles?: Record<string, { title_vi: string | null; title_en: string | null }>;
+  /** Base path for thread deep-links — /parent/thread or /child/thread. */
+  threadBasePath?: "/parent/thread" | "/child/thread";
 }
 
 const T = {
@@ -47,6 +57,9 @@ const T = {
     today: "Hôm nay",
     tomorrow: "Ngày mai",
     inDays: (n: number) => `Còn ${n} ngày`,
+    fromThread: "Từ",
+    anyone: "Bất kỳ ai",
+    forOwner: "Cho",
   },
   en: {
     open: "Open",
@@ -64,6 +77,9 @@ const T = {
     today: "Due today",
     tomorrow: "Due tomorrow",
     inDays: (n: number) => `Due in ${n} days`,
+    fromThread: "From",
+    anyone: "Anyone",
+    forOwner: "For",
   },
 } as const;
 
@@ -75,7 +91,13 @@ const T = {
  * Optimistic update: checkbox flips immediately, server action runs
  * via transition; if it fails the next router.refresh resets state.
  */
-export function TodoList({ items, language, memberNames }: TodoListProps) {
+export function TodoList({
+  items,
+  language,
+  memberNames,
+  threadTitles = {},
+  threadBasePath = "/child/thread",
+}: TodoListProps) {
   const t = T[language];
   const [rows, setRows] = useState(items);
   const [, startTransition] = useTransition();
@@ -175,6 +197,8 @@ export function TodoList({ items, language, memberNames }: TodoListProps) {
                 onDelete={onDelete}
                 t={t}
                 memberNames={memberNames}
+                threadTitles={threadTitles}
+                threadBasePath={threadBasePath}
               />
             ))}
           </ul>
@@ -213,6 +237,8 @@ export function TodoList({ items, language, memberNames }: TodoListProps) {
                   onDelete={onDelete}
                   t={t}
                   memberNames={memberNames}
+                  threadTitles={threadTitles}
+                  threadBasePath={threadBasePath}
                 />
               ))}
             </ul>
@@ -231,6 +257,8 @@ function TodoItem({
   onDelete,
   t,
   memberNames,
+  threadTitles,
+  threadBasePath,
 }: {
   row: TodoRow;
   language: Language;
@@ -238,6 +266,8 @@ function TodoItem({
   onDelete: (id: string) => void;
   t: (typeof T)[Language];
   memberNames: Record<string, string>;
+  threadTitles: Record<string, { title_vi: string | null; title_en: string | null }>;
+  threadBasePath: "/parent/thread" | "/child/thread";
 }) {
   const label = language === "vi" ? row.text_vi : row.text_en;
   const assigneeBadge =
@@ -247,6 +277,19 @@ function TodoItem({
         ? t.child
         : "";
   const creatorName = row.created_by ? memberNames[row.created_by] : null;
+  // Owner rendering — specific person if we know them, "Anyone" as
+  // a real value if no owner is set (audit: not null-rendering).
+  const ownerName = row.owner_id ? memberNames[row.owner_id] : null;
+  // Source thread — small "From: <title> →" line above the label that
+  // deep-links to the thread the item was extracted from.
+  const sourceThread = row.source_thread_id
+    ? threadTitles[row.source_thread_id]
+    : null;
+  const sourceTitle = sourceThread
+    ? language === "vi"
+      ? sourceThread.title_vi || sourceThread.title_en
+      : sourceThread.title_en || sourceThread.title_vi
+    : null;
 
   return (
     <li>
@@ -263,6 +306,20 @@ function TodoItem({
           aria-label={label}
         />
         <div className="min-w-0 flex-1 space-y-1">
+          {sourceTitle && row.source_thread_id && (
+            // Deep-link back to the thread the item was extracted from.
+            // stopPropagation so tapping the link doesn't ALSO toggle
+            // the checkbox that wraps the row.
+            <Link
+              href={`${threadBasePath}/${row.source_thread_id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1 text-body-sm text-green-text hover:underline"
+            >
+              <span className="text-ink-3">{t.fromThread}:</span>
+              <span className="truncate max-w-[200px]">{sourceTitle}</span>
+              <span aria-hidden>→</span>
+            </Link>
+          )}
           <p
             className={`leading-relaxed ${
               row.is_completed ? "text-muted line-through" : "text-ink"
@@ -271,6 +328,18 @@ function TodoItem({
             {label}
           </p>
           <div className="flex flex-wrap items-center gap-2 text-body-sm text-muted/80">
+            {/* Owner pill — always render if we can name a person, or
+                render "Anyone" when the owner is deliberately unset
+                (per audit: "Anyone" is a real value, not null-rendering). */}
+            <span
+              className={`rounded-full px-2 py-0.5 ${
+                ownerName
+                  ? "bg-clay-wash text-clay-deep"
+                  : "bg-line/40 text-ink-3"
+              }`}
+            >
+              {t.forOwner} {ownerName ?? t.anyone}
+            </span>
             {assigneeBadge && (
               <span className="rounded-full bg-green-wash text-green-text px-2 py-0.5">
                 {assigneeBadge}
