@@ -2,7 +2,9 @@
 
 import { useCallback, useMemo, useState, useTransition } from "react";
 import { MarkdownContent } from "@/components/MarkdownContent";
-import { splitAnswerAnatomy } from "@/lib/answer-anatomy";
+import { CallPrepCard } from "@/components/CallPrepCard";
+import { splitAnswerAnatomy, type VocabTerm } from "@/lib/answer-anatomy";
+import { detectCallInAnswer } from "@/lib/call-prep";
 import { addTodo } from "@/app/(app)/todos/actions";
 import type { Language } from "@/lib/language-detect";
 
@@ -24,6 +26,7 @@ const T = {
     added: "Đã thêm",
     adding: "Đang thêm...",
     addFailed: "Không thêm được — thử lại?",
+    vocabHeading: "Từ cần biết",
   },
   en: {
     addHeading: "Add to your list",
@@ -31,6 +34,7 @@ const T = {
     added: "Added",
     adding: "Adding…",
     addFailed: "Couldn't add — try again?",
+    vocabHeading: "Words to know",
   },
 } as const;
 
@@ -50,9 +54,17 @@ const T = {
  */
 export function AnswerContent({ children, language, threadId }: AnswerContentProps) {
   const t = T[language];
-  const { body, suggestedTodos } = useMemo(
+  const { body, suggestedTodos, vocab } = useMemo(
     () => splitAnswerAnatomy(children ?? ""),
     [children],
+  );
+  // Auto-surface a "Prepare to call" affordance whenever the answer
+  // recommends an Australian institution phone number. Only when we
+  // have a threadId — the home-screen initial stream doesn't yet have
+  // one to attach the plan to.
+  const detectedCall = useMemo(
+    () => (threadId ? detectCallInAnswer(body) : null),
+    [threadId, body],
   );
 
   return (
@@ -60,6 +72,15 @@ export function AnswerContent({ children, language, threadId }: AnswerContentPro
       <MarkdownContent>{body}</MarkdownContent>
       {suggestedTodos.length > 0 && (
         <SuggestedTodos items={suggestedTodos} t={t} threadId={threadId ?? null} />
+      )}
+      {vocab.length > 0 && <VocabPanel items={vocab} heading={t.vocabHeading} />}
+      {detectedCall && threadId && (
+        <CallPrepCard
+          threadId={threadId}
+          service={detectedCall.service}
+          phone={detectedCall.phone}
+          language={language}
+        />
       )}
     </div>
   );
@@ -174,5 +195,45 @@ function PlusIcon() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="h-3.5 w-3.5">
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />
     </svg>
+  );
+}
+
+/**
+ * Words-to-know panel — Vocabulary Level 1.
+ *
+ * Rendered beneath every assistant answer that introduces new terms.
+ * Deliberately small: no controls, no tap targets, just a
+ * side-by-side glossary so vocabulary is always visible in context.
+ * Every interaction teaches → dependence drops over time.
+ *
+ * Level 2 (parked): per-user tracking (seen count, first-seen date,
+ *   /vocab browse page, home tile with total count).
+ * Level 3 (parked): spaced-repetition prompts + practice.
+ */
+function VocabPanel({
+  items,
+  heading,
+}: {
+  items: VocabTerm[];
+  heading: string;
+}) {
+  return (
+    <section className="rounded-card border border-line bg-paper p-4 space-y-2">
+      <h3 className="text-label uppercase tracking-wide text-ink-3">
+        {heading}
+      </h3>
+      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5">
+        {items.map((term, i) => (
+          <div key={`${i}-${term.en}`} className="flex items-baseline gap-2 min-w-0">
+            <dt className="text-body font-medium text-ink truncate">
+              {term.en}
+            </dt>
+            <dd className="text-body-sm text-ink-3 truncate">
+              {term.vi}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </section>
   );
 }
