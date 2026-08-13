@@ -140,41 +140,11 @@ export async function generateCallPrep(input: {
   }
 }
 
-/**
- * Detect Australian institution + phone from a chunk of markdown / prose.
- * Returns the first match (rank by specificity — bigger institutions
- * first) or null. Used to auto-surface the "Prepare for this call"
- * button on an answer that recommends a call.
- */
-const AU_PHONE_RE =
-  /\b(?:1[38]00[\s-]?\d{3}[\s-]?\d{3}|13[\s-]?\d{2}[\s-]?\d{2}|13\d[\s-]?\d{3}|0[2378][\s-]?\d{4}[\s-]?\d{4}|\(0\d\)[\s-]?\d{4}[\s-]?\d{4})\b/g;
-
-// Rank institutions we care about first — if the answer mentions
-// Centrelink AND some other number, we generate Centrelink's card.
-const INSTITUTIONS: Array<{ name: string; re: RegExp }> = [
-  { name: "Centrelink", re: /\bcentrelink\b/i },
-  { name: "Medicare", re: /\bmedicare\b/i },
-  { name: "ATO", re: /\b(?:ato|australian\s+tax\s+office)\b/i },
-  { name: "myGov", re: /\bmy[\s-]?gov\b/i },
-  { name: "Services Australia", re: /\bservices\s+australia\b/i },
-  { name: "NDIS", re: /\bndis\b/i },
-];
-
-export interface DetectedCall {
-  service: string;
-  phone: string;
-}
-
-export function detectCallInAnswer(md: string): DetectedCall | null {
-  if (!md) return null;
-  const phoneMatch = md.match(AU_PHONE_RE);
-  const phone = phoneMatch?.[0]?.trim();
-  if (!phone) return null;
-  for (const inst of INSTITUTIONS) {
-    if (inst.re.test(md)) {
-      return { service: inst.name, phone };
-    }
-  }
-  // Phone present but no known institution → still surface, generic.
-  return { service: "the service", phone };
-}
+// The client-safe `detectCallInAnswer` used to live here. It's moved
+// to lib/call-prep-detect.ts because client components need it and
+// this module imports the Anthropic SDK — pulling any export from
+// here into a client bundle ships the SDK to the browser, which
+// throws ("browser-like environment") on load. Server code that also
+// needs the detector should import from lib/call-prep-detect.
+export type { DetectedCall } from "./call-prep-detect";
+export { detectCallInAnswer } from "./call-prep-detect";

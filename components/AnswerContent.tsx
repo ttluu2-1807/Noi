@@ -4,7 +4,11 @@ import { useCallback, useMemo, useState, useTransition } from "react";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { CallPrepCard } from "@/components/CallPrepCard";
 import { splitAnswerAnatomy, type VocabTerm } from "@/lib/answer-anatomy";
-import { detectCallInAnswer } from "@/lib/call-prep";
+// CRITICAL: import from call-prep-detect, NOT call-prep. The full
+// call-prep module imports the Anthropic SDK for its generator and
+// ships it into the client bundle if any client component references
+// it. call-prep-detect is pure regex, client-safe.
+import { detectCallInAnswer } from "@/lib/call-prep-detect";
 import { addTodo } from "@/app/(app)/todos/actions";
 import type { Language } from "@/lib/language-detect";
 
