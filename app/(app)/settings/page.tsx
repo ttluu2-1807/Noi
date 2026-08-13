@@ -5,6 +5,7 @@ import { SubmitButton } from "@/components/SubmitButton";
 import { CopyableCode } from "./CopyableCode";
 import { PushSubscribe } from "./PushSubscribe";
 import { hasPushSubscription } from "./push-actions";
+import { FamilySection } from "./FamilySection";
 import {
   updateDisplayName,
   updateLanguagePreference,
@@ -51,7 +52,11 @@ const LABELS = {
   },
 } as const;
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: { familyError?: string };
+}) {
   const supabase = createServerClient();
   const {
     data: { user },
@@ -79,6 +84,26 @@ export default async function SettingsPage() {
   const backHref = profile?.role === "parent" ? "/parent" : "/child";
   const initiallySubscribed = await hasPushSubscription();
   const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? null;
+
+  // Family roster — all profiles in the same family_space. RLS scopes
+  // to the caller's family so a null family_space_id just yields [].
+  const { data: familyMembersRaw } = profile?.family_space_id
+    ? await supabase
+        .from("profiles")
+        .select(
+          "id, display_name, role, language_preference, created_at",
+        )
+        .eq("family_space_id", profile.family_space_id)
+        .order("created_at", { ascending: true })
+    : { data: [] };
+  const familyMembers = (familyMembersRaw ?? []).map((m) => ({
+    id: m.id as string,
+    display_name: (m.display_name ?? "Family member") as string,
+    role: (m.role as "parent" | "child") ?? "child",
+    language_preference: (m.language_preference ?? "vi") as "vi" | "en",
+    joined_at: m.created_at as string,
+    is_self: m.id === user.id,
+  }));
 
   return (
     <main className="mx-auto max-w-md px-6 py-10 space-y-8">
@@ -166,6 +191,14 @@ export default async function SettingsPage() {
           </div>
           <CopyableCode code={family.invite_code} />
         </section>
+      )}
+
+      {familyMembers.length > 0 && (
+        <FamilySection
+          members={familyMembers}
+          language={lang}
+          errorFromQuery={searchParams.familyError ?? null}
+        />
       )}
 
       <PushSubscribe
