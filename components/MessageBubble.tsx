@@ -6,6 +6,7 @@ import { isTTSSupported, hasVoiceFor, speak, stopSpeaking } from "@/lib/tts";
 import { renderTextWithLinks } from "@/lib/render-text";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { AnswerContent } from "@/components/AnswerContent";
+import { Lantern } from "@/components/Lantern";
 import { getAttachmentSignedUrl, type Attachment } from "@/lib/storage";
 
 export interface MessageRow {
@@ -158,8 +159,15 @@ export function MessageBubble({
 
   return (
     <div className={`space-y-1 animate-spring-in ${isAssistant ? "" : "ml-6"}`}>
+      {/* Assistant messages get the lit lantern next to the label —
+          per audit §5 the mark appears wherever Noi is responsible for
+          something on screen. Family messages keep just the text label
+          (a person is responsible → clay-side of the palette). */}
       {roleLabel && (
-        <div className="text-body-sm text-muted">{roleLabel}</div>
+        <div className="flex items-center gap-1.5 text-body-sm text-muted">
+          {isAssistant && <Lantern size={20} state="lit" label="Noi" />}
+          <span>{roleLabel}</span>
+        </div>
       )}
       {message.attachments && message.attachments.length > 0 && (
         <AttachmentGrid attachments={message.attachments} />
