@@ -1,23 +1,21 @@
-// Generate PWA icons + favicon from the design-token lantern.
-// Run: node scripts/generate-icons.mjs
+// Generate PWA icons + favicon from the Noi lantern.
+// Run: npm run icons
+//
+// Source: the lantern SVG from the design HTML (page 76×76). Every
+// path + colour lifted verbatim so we stay in sync with the design.
 //
 // Produces:
-//   public/icon.svg               — vector master (used by favicon meta)
+//   public/icon.svg               — vector master
 //   public/icon-180.png           — apple-touch-icon (iOS home screen)
 //   public/icon-192.png           — Android manifest
 //   public/icon-512.png           — Android manifest / splash
 //   public/icon-maskable-512.png  — maskable variant (safe-zone body)
 //   public/favicon.ico            — browser tab
 //
-// The lantern shape uses the audit's tokens directly:
-//   body   #F6C45A (lantern)
-//   frame  #241E1A (ink)
-//   halo   rgba(246, 196, 90, 0.18)
-//   bg     #FBF6EE (paper) — for regular icons
-//   bg     #0C7A55 (green) — for the maskable circle bed
-//
-// Placeholder-quality until real production art lands — matches the
-// design tokens so it's on-brand rather than random.
+// The maskable variant paints the whole canvas green and floats the
+// lantern in the middle 60% so Android's adaptive-icon crop never
+// clips the body — the design's 76×76 lantern renders inside a 46×46
+// window, so we shrink to 60% of canvas to be safe on any crop shape.
 
 import sharp from "sharp";
 import fs from "node:fs/promises";
@@ -25,79 +23,35 @@ import path from "node:path";
 
 const OUT = path.join(process.cwd(), "public");
 
-// Basic lantern silhouette centred inside a 512×512 viewBox. Simple
-// shapes — cap + body + tassel — coloured with the token palette.
-// Kept single-path where possible so tiny sizes stay legible.
-function lanternSvg({
-  size = 512,
-  bg = "#FBF6EE",
-  maskable = false,
-  showRoundedBg = true,
-} = {}) {
-  // Maskable icons need the body inside the "safe zone" — a circle
-  // with 80% diameter of the canvas centred on it. We paint the whole
-  // canvas the brand green and shrink the lantern to fit.
-  const bodyScale = maskable ? 0.6 : 0.82;
-  const bodyPaint = "#F6C45A";
-  const frame = "#241E1A";
-  const halo = "rgba(246, 196, 90, 0.22)";
-  const cx = 256;
-  const cy = 256;
+// The design's lantern paths, unmodified. Green rect + paper handle +
+// gold body + green wick + paper base.
+const LANTERN_PATHS = `
+  <path d="M29 22h18" stroke="#FBF6EE" stroke-width="4" stroke-linecap="round"/>
+  <path d="M27 28.5c0-2 1.6-3.5 3.6-3.5h14.8c2 0 3.6 1.5 3.6 3.5v14c0 5.6-4.8 9.5-11 9.5s-11-3.9-11-9.5Z" fill="#F6C45A"/>
+  <path d="M35 36.5 L42.5 31.5" stroke="#0C7A55" stroke-width="3.4" stroke-linecap="round"/>
+  <path d="M38 55.5v4" stroke="#FBF6EE" stroke-width="4" stroke-linecap="round"/>
+`;
 
-  // Lantern anatomy — proportional to a 512-canvas base.
-  const bodyW = 190 * bodyScale;
-  const bodyH = 250 * bodyScale;
-  const capW = 130 * bodyScale;
-  const capH = 34 * bodyScale;
-  const handleW = 90 * bodyScale;
-  const handleH = 60 * bodyScale;
-
-  const bodyX = cx - bodyW / 2;
-  const bodyY = cy - bodyH / 2 + 20 * bodyScale;
-  const bodyR = 24 * bodyScale;
-
-  const capX = cx - capW / 2;
-  const capY = bodyY - capH + 4;
-
-  const handleX = cx - handleW / 2;
-  const handleY = capY - handleH;
-
-  const bgFill = maskable
-    ? "#0C7A55"
-    : showRoundedBg
-      ? bg
-      : "none";
-
-  const cornerR = maskable ? 0 : 96;
-
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="${size}" height="${size}">
-  <rect width="512" height="512" rx="${cornerR}" ry="${cornerR}" fill="${bgFill}"/>
-  <!-- soft halo -->
-  <circle cx="${cx}" cy="${cy + 10}" r="${bodyW * 1.15}" fill="${halo}"/>
-  <!-- handle -->
-  <path
-    d="M ${handleX} ${handleY + handleH}
-       q 0 -${handleH} ${handleW / 2} -${handleH}
-       q ${handleW / 2} 0 ${handleW / 2} ${handleH}"
-    stroke="${frame}" stroke-width="${10 * bodyScale}"
-    fill="none" stroke-linecap="round"/>
-  <!-- cap -->
-  <rect x="${capX}" y="${capY}" width="${capW}" height="${capH}"
-        rx="${8 * bodyScale}" fill="${frame}"/>
-  <!-- body glass -->
-  <rect x="${bodyX}" y="${bodyY}" width="${bodyW}" height="${bodyH}"
-        rx="${bodyR}" fill="${bodyPaint}"/>
-  <!-- body frame -->
-  <rect x="${bodyX}" y="${bodyY}" width="${bodyW}" height="${bodyH}"
-        rx="${bodyR}" fill="none" stroke="${frame}" stroke-width="${8 * bodyScale}"/>
-  <!-- vertical frame divider (single, subtle) -->
-  <line x1="${cx}" y1="${bodyY + 12 * bodyScale}" x2="${cx}"
-        y2="${bodyY + bodyH - 12 * bodyScale}"
-        stroke="${frame}" stroke-width="${5 * bodyScale}" opacity="0.55"/>
-  <!-- base foot -->
-  <rect x="${cx - (capW - 10) / 2}" y="${bodyY + bodyH - 2}"
-        width="${capW - 10}" height="${18 * bodyScale}"
-        rx="${6 * bodyScale}" fill="${frame}"/>
+/**
+ * Build an SVG string at any pixel size. The design's paths live in a
+ * 76×76 coord space with a 20-unit corner radius on the rect. We emit
+ * a viewBox matching that so the paths render 1:1 regardless of size.
+ *
+ * For the standard icon, corner radius scales with size. For maskable,
+ * we paint the whole square (no radius) and scale the lantern down so
+ * the body stays inside the safe zone even under aggressive crops.
+ */
+function lanternSvg({ maskable = false } = {}) {
+  const cornerR = maskable ? 0 : 20;
+  // Maskable: shrink the lantern so it sits in the middle 60% of canvas.
+  // Standard: keep the design's exact scale (lantern fills ~60% already).
+  const scale = maskable ? 0.75 : 1;
+  const tx = maskable ? (76 * (1 - scale)) / 2 : 0;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 76 76" width="76" height="76">
+  <rect width="76" height="76" rx="${cornerR}" fill="#0C7A55"/>
+  <g transform="translate(${tx.toFixed(2)} ${tx.toFixed(2)}) scale(${scale})">
+    ${LANTERN_PATHS.trim()}
+  </g>
 </svg>`;
 }
 
@@ -107,24 +61,27 @@ async function writeSvg(name, svg) {
 }
 
 async function writePng(name, size, opts = {}) {
-  const svg = lanternSvg({ size, ...opts });
+  const svg = lanternSvg(opts);
   const buf = Buffer.from(svg);
-  await sharp(buf).resize(size, size).png().toFile(path.join(OUT, name));
+  await sharp(buf, { density: 300 })
+    .resize(size, size)
+    .png()
+    .toFile(path.join(OUT, name));
   console.log(`  · wrote ${name} (${size}×${size})`);
 }
 
 async function writeIco() {
-  // Small favicon: generate 48px PNG then rename to .ico —
-  // Chrome + Firefox + Safari all accept PNG-inside-.ico for favicons.
-  const svg = lanternSvg({ size: 48, showRoundedBg: true });
-  const buf = Buffer.from(svg);
-  const png = await sharp(buf).resize(48, 48).png().toBuffer();
+  const svg = lanternSvg();
+  const png = await sharp(Buffer.from(svg), { density: 300 })
+    .resize(48, 48)
+    .png()
+    .toBuffer();
   await fs.writeFile(path.join(OUT, "favicon.ico"), png);
   console.log("  · wrote favicon.ico (48×48 PNG-in-ICO)");
 }
 
 console.log("Generating Noi lantern icons →");
-await writeSvg("icon.svg", lanternSvg({ showRoundedBg: false }));
+await writeSvg("icon.svg", lanternSvg());
 await writePng("icon-180.png", 180);
 await writePng("icon-192.png", 192);
 await writePng("icon-512.png", 512);
