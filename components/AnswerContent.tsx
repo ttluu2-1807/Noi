@@ -133,15 +133,25 @@ function AddChip({
     if (state !== "idle") return;
     setState("adding");
     startTransition(async () => {
-      const fd = new FormData();
-      fd.set("text", text);
-      // Link back to the thread the chip came from, so the todo groups
-      // under that thread's header on /todos.
-      if (threadId) fd.set("sourceThreadId", threadId);
-      const result = await addTodo(fd);
-      if (result.ok) {
-        setState("added");
-      } else {
+      // Belt-and-braces try/catch — without this an addTodo throw
+      // (Anthropic timeout, network blip, cold-start error) rejects
+      // the promise unhandled and leaves the chip stuck in "adding"
+      // forever. Any thrown error now flips to the error state so
+      // the user gets a retry affordance.
+      try {
+        const fd = new FormData();
+        fd.set("text", text);
+        // Fast path: chip text already came from Claude's answer, no
+        // need to re-run extractTodos (which was the slow / hangy
+        // bit). Server takes the text verbatim on both language sides.
+        fd.set("skipExtract", "1");
+        // Link back to the thread the chip came from, so the todo
+        // groups under that thread's header on /todos.
+        if (threadId) fd.set("sourceThreadId", threadId);
+        const result = await addTodo(fd);
+        setState(result.ok ? "added" : "error");
+      } catch (err) {
+        console.error("[AddChip] addTodo threw:", err);
         setState("error");
       }
     });

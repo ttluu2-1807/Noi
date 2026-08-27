@@ -91,26 +91,17 @@ export async function addTodo(
     .maybeSingle();
   if (!profile?.family_space_id) return { ok: false, error: "Profile not ready" };
 
-  // For a manual add, treat the input language as the source of truth
-  // and translate the other way. extractTodos handles both, but for a
-  // single one-liner we can keep it lighter by going straight to insert
-  // with the input as one side and Claude only on translation. To keep
-  // a single code path, reuse extractTodos with one-item expectation.
-  const inputLang = detectLanguage(text);
-
-  let items;
-  try {
-    items = await extractTodos(text, inputLang, new Date().toISOString());
-  } catch {
-    return { ok: false, error: "Could not save that task" };
-  }
-  if (items.length === 0) return { ok: false, error: "Couldn't read that task" };
-
   // Merged-list linkage: chips inside a thread pass sourceThreadId so
   // the item on /todos groups under a header linking back to the thread
   // that produced it. Owner can be pre-set from the composer/picker.
   const sourceThreadId = String(formData.get("sourceThreadId") ?? "").trim() || null;
   const ownerId = String(formData.get("ownerId") ?? "").trim() || null;
+  // Fast path for "Add to your list" chips — the chip text already
+  // came from Claude's answer, so we DON'T need to round-trip through
+  // extractTodos just to re-translate it. Skips the Claude call
+  // entirely; store the same text on both language sides (a follow-up
+  // could add lightweight translation later without blocking the tap).
+  const skipExtract = formData.get("skipExtract") === "1";
   const recurrenceRaw = String(formData.get("recurrence") ?? "").trim();
   const rolloverRaw = String(formData.get("rollover") ?? "").trim();
   const recurrence: Recurrence | null =
@@ -122,8 +113,29 @@ export async function addTodo(
       : null;
   const rollover: Rollover = rolloverRaw === "spawn" ? "spawn" : "reset";
 
-  // Take just the first item — manual add is single-item by intent.
-  const item = items[0];
+  // Either resolve item via Claude extraction, or take the raw text
+  // as-is for both languages (chip fast path). The extractor round-
+  // trip is what was hanging the "Add to your list" chip flow.
+  let item: { text_vi: string; text_en: string; due_at: string | null; assignee_role: "parent" | "child" | "any" };
+  if (skipExtract) {
+    item = {
+      text_vi: text,
+      text_en: text,
+      due_at: null,
+      assignee_role: "any",
+    };
+  } else {
+    const inputLang = detectLanguage(text);
+    let items;
+    try {
+      items = await extractTodos(text, inputLang, new Date().toISOString());
+    } catch {
+      return { ok: false, error: "Could not save that task" };
+    }
+    if (items.length === 0) return { ok: false, error: "Couldn't read that task" };
+    item = items[0];
+  }
+
   const { error } = await supabase.from("family_todos").insert({
     family_space_id: profile.family_space_id,
     created_by: user.id,

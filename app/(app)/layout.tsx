@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
 import { TabBar } from "@/components/TabBar";
+import { AutoRefresh } from "@/components/AutoRefresh";
 import type { Language } from "@/lib/language-detect";
 
 /**
@@ -48,6 +49,10 @@ export default async function AppLayout({
 
   return (
     <>
+      {/* Refresh server components whenever Noi returns to foreground
+          (visibilitychange / focus). No UI — silent belt-and-braces
+          on top of the RealtimeBoundary subscriptions. */}
+      <AutoRefresh />
       {/* Content — bottom padding leaves room for the fixed TabBar +
           any inline FAB. The TabBar itself sits above safe-area. */}
       <div className="pb-24">{children}</div>
