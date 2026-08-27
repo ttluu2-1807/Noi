@@ -5,6 +5,7 @@ import { createServerClient } from "@/lib/supabase/server";
 import { extractTodos } from "@/lib/todo-extract";
 import { detectLanguage } from "@/lib/language-detect";
 import { nextDueAt, type Recurrence, type Rollover } from "@/lib/recurrence";
+import { createDiaryEntry } from "@/app/(app)/diary/actions";
 
 /**
  * Server actions for the family-shared to-do list (FAM-2).
@@ -323,6 +324,77 @@ export async function deleteTodo(
   revalidatePath("/todos");
   revalidatePath("/trash");
   return { ok: true };
+}
+
+/**
+ * Migrate a completed to-do into the diary as an "event" — captures
+ * historical record ("Renewed Medicare card on 15 Aug 2026") so the
+ * family remembers WHEN a bureaucratic thing was done, not just that
+ * it once existed on a list. Triggered by the "Log to diary" prompt
+ * that appears when a substantial todo (has due_at or came from a
+ * thread) is ticked complete.
+ *
+ * Uses createDiaryEntry so all the dual-language translation +
+ * validation + RLS scoping already in that path applies here too.
+ * The event's date is the todo's completed_at (fallback: today).
+ * source_thread_id becomes related_thread_id so the diary entry
+ * links back to the original conversation.
+ */
+export async function migrateTodoToDiary(
+  todoId: string,
+): Promise<{ ok: true; diaryId: string } | { ok: false; error: string }> {
+  if (!todoId) return { ok: false, error: "Missing id" };
+
+  const supabase = createServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Unauthorized" };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("family_space_id, language_preference")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!profile?.family_space_id) {
+    return { ok: false, error: "Profile not ready" };
+  }
+
+  const { data: todo } = await supabase
+    .from("family_todos")
+    .select("text_vi, text_en, completed_at, source_thread_id")
+    .eq("id", todoId)
+    .maybeSingle();
+  if (!todo) return { ok: false, error: "To-do not found" };
+
+  const language = (profile.language_preference ?? "vi") as "vi" | "en";
+  // Prefer the user's-language text; createDiaryEntry re-translates.
+  const title =
+    language === "vi"
+      ? todo.text_vi || todo.text_en || ""
+      : todo.text_en || todo.text_vi || "";
+  if (!title.trim()) return { ok: false, error: "Empty todo text" };
+
+  // Event date = day the todo was completed (falls back to today).
+  const eventDate = todo.completed_at
+    ? new Date(todo.completed_at as string).toISOString().slice(0, 10)
+    : new Date().toISOString().slice(0, 10);
+
+  const result = await createDiaryEntry({
+    kind: "event",
+    title,
+    body: null,
+    context: null,
+    event_date: eventDate,
+    tags: [],
+    attachments: [],
+    related_thread_id: (todo.source_thread_id as string | null) ?? null,
+  });
+  if (!result.ok) return { ok: false, error: result.error };
+
+  revalidatePath("/diary");
+  revalidatePath("/todos");
+  return { ok: true, diaryId: result.id };
 }
 
 /**

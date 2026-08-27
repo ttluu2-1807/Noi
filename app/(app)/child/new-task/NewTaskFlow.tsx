@@ -6,6 +6,7 @@ import { useEffect, useState, useTransition } from "react";
 import { LoadingDots } from "@/components/LoadingDots";
 import { VoiceInput } from "@/components/VoiceInput";
 import { MarkdownContent } from "@/components/MarkdownContent";
+import { useVoiceInput } from "@/hooks/useVoiceInput";
 import {
   generateTaskPreview,
   refineTaskPreview,
@@ -241,20 +242,29 @@ export function NewTaskFlow() {
               ))}
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
-              <input
-                type="text"
-                value={refineInput}
-                onChange={(e) => setRefineInput(e.target.value)}
-                placeholder="Or type your own ask, e.g. 'add a step about bringing ID'"
-                disabled={pending}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && refineInput.trim()) {
-                    e.preventDefault();
-                    onRefine(refineInput);
-                  }
-                }}
-                className="flex-1 rounded-card border border-line bg-white px-3 py-2 text-sm focus:border-accent focus:outline-none"
-              />
+              <div className="flex flex-1 items-stretch gap-2">
+                <input
+                  type="text"
+                  value={refineInput}
+                  onChange={(e) => setRefineInput(e.target.value)}
+                  placeholder="Or type your own ask, e.g. 'add a step about bringing ID'"
+                  disabled={pending}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && refineInput.trim()) {
+                      e.preventDefault();
+                      onRefine(refineInput);
+                    }
+                  }}
+                  className="flex-1 rounded-card border border-line bg-white px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                />
+                {/* Compact mic — tap to dictate, transcript appends to
+                    (or replaces) whatever's typed. Speech recognition
+                    for "en-AU" — child is the primary refiner. */}
+                <RefineMic
+                  disabled={pending}
+                  onTranscript={(text) => setRefineInput(text)}
+                />
+              </div>
               <button
                 type="button"
                 onClick={() => onRefine(refineInput)}
@@ -306,5 +316,65 @@ export function NewTaskFlow() {
         </div>
       )}
     </main>
+  );
+}
+
+/**
+ * Compact inline mic for the refine input. Same underlying
+ * useVoiceInput hook as the big hero mic, just wrapped in a small
+ * square that fits beside a text input. Tap to start, tap again to
+ * stop; transcript flows to the caller. Renders null if the browser
+ * doesn't support SpeechRecognition (nothing to fall back to inline).
+ */
+function RefineMic({
+  disabled,
+  onTranscript,
+}: {
+  disabled?: boolean;
+  onTranscript: (text: string) => void;
+}) {
+  const { isSupported, isListening, start, stop } = useVoiceInput({
+    language: "en",
+    onTranscript,
+  });
+
+  if (!isSupported) return null;
+
+  const label = isListening ? "Stop dictating" : "Dictate refinement";
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={() => (isListening ? stop() : start())}
+      disabled={disabled}
+      className={`shrink-0 inline-flex h-10 w-10 items-center justify-center rounded-card border transition-colors active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ${
+        isListening
+          ? "border-clay bg-clay text-white"
+          : "border-line bg-surface text-ink-3 hover:border-green/40 hover:text-green"
+      }`}
+    >
+      {isListening ? (
+        // While listening, a solid stop square + a subtle pulse ring
+        // signals "tap to end".
+        <span className="relative inline-flex">
+          <span className="absolute inset-0 -m-1 rounded-full bg-clay/40 animate-ping" />
+          <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4 relative">
+            <rect x="6" y="6" width="12" height="12" rx="2" />
+          </svg>
+        </span>
+      ) : (
+        <MicIcon />
+      )}
+    </button>
+  );
+}
+
+function MicIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8" />
+    </svg>
   );
 }

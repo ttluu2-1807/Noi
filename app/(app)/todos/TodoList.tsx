@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { toggleTodo, deleteTodo, restoreTodo } from "./actions";
+import { toggleTodo, deleteTodo, restoreTodo, migrateTodoToDiary } from "./actions";
 import Link from "next/link";
 import { Toast } from "@/components/Toast";
 import { TodoActionsMenu } from "@/components/TodoActionsMenu";
@@ -53,6 +53,10 @@ const T = {
     deleted: "Đã xoá",
     undo: "Hoàn tác",
     by: "bởi",
+    logToDiary: "Ghi vào nhật ký?",
+    logAction: "Ghi lại",
+    logged: "Đã ghi vào nhật ký.",
+    logFailed: "Không ghi được.",
     overdue: "Quá hạn",
     today: "Hôm nay",
     tomorrow: "Ngày mai",
@@ -73,6 +77,10 @@ const T = {
     deleted: "Deleted",
     undo: "Undo",
     by: "by",
+    logToDiary: "Log to diary?",
+    logAction: "Log it",
+    logged: "Logged to diary.",
+    logFailed: "Couldn't log to diary.",
     overdue: "Overdue",
     today: "Due today",
     tomorrow: "Due tomorrow",
@@ -108,11 +116,25 @@ export function TodoList({
   const [undoState, setUndoState] = useState<
     { id: string; label: string; key: number } | null
   >(null);
+  // Migrate-to-diary prompt state — surfaces a Toast when a
+  // "substantial" todo is ticked complete (has due_at or came from a
+  // thread). Trivial one-offs ("buy milk") don't trigger it.
+  const [migrateState, setMigrateState] = useState<
+    { id: string; label: string; key: number } | null
+  >(null);
+  // Confirmation shown after a successful migrate — auto-fades.
+  const [migrateResult, setMigrateResult] = useState<
+    { message: string; ok: boolean; key: number } | null
+  >(null);
 
   const open = rows.filter((r) => !r.is_completed);
   const done = rows.filter((r) => r.is_completed);
 
   const onToggle = (id: string) => {
+    const row = rows.find((r) => r.id === id);
+    if (!row) return;
+    const wasCompleted = row.is_completed;
+    // Optimistic flip.
     setRows((prev) =>
       prev.map((r) => (r.id === id ? { ...r, is_completed: !r.is_completed } : r)),
     );
@@ -120,6 +142,35 @@ export function TodoList({
       const fd = new FormData();
       fd.set("id", id);
       await toggleTodo(fd);
+    });
+    // Only prompt on the open→completed transition (never on
+    // uncompleting), and only for todos worth remembering — anything
+    // scheduled (had a due_at) or born of a Noi conversation
+    // (source_thread_id). "Buy milk" style one-offs stay silent.
+    if (!wasCompleted) {
+      const worthLogging = !!row.due_at || !!row.source_thread_id;
+      if (worthLogging) {
+        const label = language === "vi" ? row.text_vi : row.text_en;
+        setMigrateState({
+          id,
+          label,
+          key: (migrateState?.key ?? 0) + 1,
+        });
+      }
+    }
+  };
+
+  const onLogToDiary = () => {
+    if (!migrateState) return;
+    const idToLog = migrateState.id;
+    setMigrateState(null);
+    startTransition(async () => {
+      const result = await migrateTodoToDiary(idToLog);
+      setMigrateResult({
+        ok: result.ok,
+        message: result.ok ? t.logged : result.error || t.logFailed,
+        key: (migrateResult?.key ?? 0) + 1,
+      });
     });
   };
 
@@ -163,6 +214,28 @@ export function TodoList({
     />
   ) : null;
 
+  // "Log to diary?" prompt on completion of a substantial todo. The
+  // primary action creates the diary event; ignoring auto-dismisses
+  // via the Toast's built-in timer.
+  const migrateToast = migrateState ? (
+    <Toast
+      key={`migrate-${migrateState.key}`}
+      message={`${t.logToDiary} ${migrateState.label}`}
+      actionLabel={t.logAction}
+      onAction={onLogToDiary}
+      onDismiss={() => setMigrateState(null)}
+    />
+  ) : null;
+
+  // Confirmation after the migrate succeeds (or errors).
+  const migrateResultToast = migrateResult ? (
+    <Toast
+      key={`migrate-result-${migrateResult.key}`}
+      message={migrateResult.message}
+      onDismiss={() => setMigrateResult(null)}
+    />
+  ) : null;
+
   if (rows.length === 0) {
     return (
       <>
@@ -175,6 +248,8 @@ export function TodoList({
           }
         />
         {undoToast}
+        {migrateToast}
+        {migrateResultToast}
       </>
     );
   }
@@ -246,6 +321,8 @@ export function TodoList({
         </div>
       )}
       {undoToast}
+      {migrateToast}
+      {migrateResultToast}
     </section>
   );
 }
