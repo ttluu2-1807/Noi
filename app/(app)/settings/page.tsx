@@ -6,6 +6,8 @@ import { CopyableCode } from "./CopyableCode";
 import { PushSubscribe } from "./PushSubscribe";
 import { hasPushSubscription } from "./push-actions";
 import { FamilySection } from "./FamilySection";
+import { CalendarConnect } from "./CalendarConnect";
+import { getGoogleConnection } from "@/lib/calendar-connections";
 import {
   updateDisplayName,
   updateLanguagePreference,
@@ -55,7 +57,11 @@ const LABELS = {
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: { familyError?: string };
+  searchParams: {
+    familyError?: string;
+    calendarError?: string;
+    calendarConnected?: string;
+  };
 }) {
   const supabase = createServerClient();
   const {
@@ -84,6 +90,17 @@ export default async function SettingsPage({
   const backHref = profile?.role === "parent" ? "/parent" : "/child";
   const initiallySubscribed = await hasPushSubscription();
   const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? null;
+  // Google Calendar connection for the CalendarConnect card. Safe on
+  // a fresh install where the calendar_connections table doesn't
+  // exist yet — the try/catch degrades to "not connected".
+  let calendarConnection:
+    | Awaited<ReturnType<typeof getGoogleConnection>>
+    | null = null;
+  try {
+    calendarConnection = await getGoogleConnection(supabase, user.id);
+  } catch {
+    calendarConnection = null;
+  }
 
   // Family roster — all profiles in the same family_space. RLS scopes
   // to the caller's family so a null family_space_id just yields [].
@@ -205,6 +222,20 @@ export default async function SettingsPage({
         language={lang}
         vapidPublicKey={vapidPublicKey}
         initiallySubscribed={initiallySubscribed}
+      />
+
+      <CalendarConnect
+        language={lang}
+        connection={
+          calendarConnection
+            ? {
+                connected_email: calendarConnection.connected_email,
+                connected_name: calendarConnection.connected_name,
+              }
+            : null
+        }
+        errorFromQuery={searchParams.calendarError ?? null}
+        connectedFlash={searchParams.calendarConnected === "1"}
       />
 
       <form action={signOut} className="pt-2">
