@@ -37,12 +37,19 @@ interface OAuthConfig {
  * inside the Google API.
  */
 export function getOAuthConfig(): OAuthConfig {
-  const clientId = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID;
+  // Both client id and secret stay server-only — nothing in the
+  // client bundle needs to know either. The OAuth flow is server-
+  // initiated (see /api/calendar/google/connect) and the browser
+  // just follows the redirect. Vercel's warning about
+  // NEXT_PUBLIC_CLIENT_ID leaking to the browser is correct even
+  // though OAuth client IDs are technically public — no reason to
+  // ship it if we don't have to.
+  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
   const redirectUri = process.env.GOOGLE_OAUTH_REDIRECT_URI;
   if (!clientId || !clientSecret || !redirectUri) {
     throw new Error(
-      "Google OAuth env vars missing — set NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, GOOGLE_OAUTH_REDIRECT_URI.",
+      "Google OAuth env vars missing — set GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, GOOGLE_OAUTH_REDIRECT_URI.",
     );
   }
   return { clientId, clientSecret, redirectUri };
