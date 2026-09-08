@@ -114,8 +114,96 @@ export function VoiceInput({
               : "Tap to speak. Tap again to stop."}
           </p>
         )}
-        {error && <p className="text-body-sm text-red-600 mt-1">{error}</p>}
+        {error && (
+          <MicErrorMessage error={error} language={language} />
+        )}
       </div>
     </div>
   );
+}
+
+/**
+ * Turn a raw SpeechRecognition error code ("service-not-allowed",
+ * "not-allowed", "network", "audio-capture", "language-not-supported")
+ * into human-readable, action-oriented copy in the user's language.
+ *
+ * Elderly users see "service-not-allowed" and freeze. We tell them
+ * exactly what to check + where in Settings, so they can self-recover
+ * without asking their child.
+ */
+function MicErrorMessage({
+  error,
+  language,
+}: {
+  error: string;
+  language: Language;
+}) {
+  const copy = friendlyMicError(error, language);
+  return (
+    <div className="text-body-sm text-danger mt-2 space-y-1 text-left">
+      <p className="font-medium">{copy.title}</p>
+      {copy.fix && <p className="text-ink-2">{copy.fix}</p>}
+    </div>
+  );
+}
+
+function friendlyMicError(
+  raw: string,
+  language: Language,
+): { title: string; fix: string | null } {
+  const T = language === "vi";
+  // The code appears either as the raw event.error string ("not-allowed")
+  // or as our reset error message; match on substring.
+  const e = raw.toLowerCase();
+
+  // Permission denied — most common. iOS Safari has two separate
+  // permission surfaces (per-site Safari settings AND Privacy →
+  // Microphone at the OS level), so we mention both.
+  if (
+    e.includes("not-allowed") ||
+    e.includes("service-not-allowed") ||
+    e.includes("permission")
+  ) {
+    return {
+      title: T
+        ? "Noi không truy cập được micro."
+        : "Noi can't use the microphone.",
+      fix: T
+        ? "Vào Cài đặt điện thoại → Safari → Micro → chọn 'Cho phép'. Sau đó tắt và mở lại Noi."
+        : "Open iPhone Settings → Safari → Microphone → set to 'Allow'. Then close and reopen Noi.",
+    };
+  }
+  if (e.includes("audio-capture")) {
+    return {
+      title: T ? "Không nhận được micro." : "No microphone detected.",
+      fix: T
+        ? "Vui lòng gõ câu hỏi thay vì nói."
+        : "Please type your question instead.",
+    };
+  }
+  if (e.includes("network")) {
+    return {
+      title: T
+        ? "Mất kết nối mạng khi đang nghe."
+        : "Lost network connection while listening.",
+      fix: T
+        ? "Kiểm tra Wi-Fi hoặc dữ liệu di động, rồi thử lại."
+        : "Check your Wi-Fi or mobile data, then try again.",
+    };
+  }
+  if (e.includes("language-not-supported")) {
+    return {
+      title: T
+        ? "Trình duyệt này không hỗ trợ tiếng Việt bằng giọng nói."
+        : "This browser doesn't support voice input for this language.",
+      fix: T ? "Vui lòng gõ câu hỏi." : "Please type your question instead.",
+    };
+  }
+  // Fallback — still human, but generic.
+  return {
+    title: T
+      ? "Có lỗi với micro. Vui lòng thử lại."
+      : "Something went wrong with the microphone. Please try again.",
+    fix: null,
+  };
 }
