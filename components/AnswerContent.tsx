@@ -141,12 +141,12 @@ function AddChip({
       try {
         const fd = new FormData();
         fd.set("text", text);
-        // Fast path: chip text already came from Claude's answer, no
-        // need to re-run extractTodos (which was the slow / hangy
-        // bit). Server takes the text verbatim on both language sides.
-        fd.set("skipExtract", "1");
-        // Link back to the thread the chip came from, so the todo
-        // groups under that thread's header on /todos.
+        // We no longer pass skipExtract — the chip text comes from
+        // Claude's answer in one language, so Vietnamese parents were
+        // seeing the English chip text as text_vi (and vice versa).
+        // Running the extract translates it properly. The ~1-2s wait
+        // is covered by the chip's "Adding..." state; the try/catch
+        // above prevents the freeze we had earlier.
         if (threadId) fd.set("sourceThreadId", threadId);
         const result = await addTodo(fd);
         setState(result.ok ? "added" : "error");
