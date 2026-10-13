@@ -42,8 +42,18 @@ export async function savePushSubscription(input: {
   return { ok: true };
 }
 
+/**
+ * Delete push subscription(s) for the calling user.
+ *
+ * - endpoint string → delete that single row (normal unsubscribe path).
+ * - endpoint null   → delete ALL of this user's rows. Used when the
+ *   browser has no local subscription but the server thought it did
+ *   (device re-auth, cleared data, subscribed on another device). The
+ *   user tapped "Turn off" — honour that intent across all stale rows
+ *   rather than leave the UI stuck in "subscribed" on next load.
+ */
 export async function deletePushSubscription(
-  endpoint: string,
+  endpoint: string | null,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const supabase = createServerClient();
   const {
@@ -51,11 +61,12 @@ export async function deletePushSubscription(
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Unauthorized" };
 
-  const { error } = await supabase
+  const query = supabase
     .from("push_subscriptions")
     .delete()
-    .eq("user_id", user.id)
-    .eq("endpoint", endpoint);
+    .eq("user_id", user.id);
+  const { error } =
+    endpoint === null ? await query : await query.eq("endpoint", endpoint);
 
   if (error) return { ok: false, error: error.message };
   revalidatePath("/settings");

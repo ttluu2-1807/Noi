@@ -181,18 +181,46 @@ export function PushSubscribe({
     setFeedback(null);
     startTransition(async () => {
       try {
-        const reg = await navigator.serviceWorker.ready;
-        const sub = await reg.pushManager.getSubscription();
+        // Use getRegistration — NOT .ready — because .ready blocks
+        // forever when no service worker was ever registered on this
+        // device (e.g. the server has a subscription row from another
+        // device, or the SW was cleared). That infinite await was what
+        // left the button stuck in "Turning off…".
+        const reg = await navigator.serviceWorker.getRegistration("/sw.js");
+        const sub = reg ? await reg.pushManager.getSubscription() : null;
         if (sub) {
-          await deletePushSubscription(sub.endpoint);
+          // Server row and browser subscription both exist — the normal
+          // path. Delete server-side first, then unsubscribe locally.
+          try {
+            await deletePushSubscription(sub.endpoint);
+          } catch (serverErr) {
+            console.error("[PushSubscribe] server delete failed:", serverErr);
+          }
           await sub.unsubscribe();
+        } else {
+          // No local subscription but the server thought we had one —
+          // clean up the stale server row(s) for this user so they
+          // don't keep seeing the "subscribed" state on next load.
+          try {
+            await deletePushSubscription(null);
+          } catch (serverErr) {
+            console.error("[PushSubscribe] server cleanup failed:", serverErr);
+          }
         }
         setSupport({ state: "ready" });
       } catch (err) {
         console.error("[PushSubscribe] disable failed:", err);
+        setFeedback({
+          ok: false,
+          message: err instanceof Error ? err.message : t.testFailed,
+        });
+        // Return to ready regardless — the user's intent was clearly
+        // "I don't want this on". Staying stuck in "subscribed" with
+        // an error is worse than being out of sync with the server.
+        setSupport({ state: "ready" });
       }
     });
-  }, []);
+  }, [t]);
 
   const test = useCallback(() => {
     setFeedback(null);
