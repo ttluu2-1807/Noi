@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
 import { TodoEditForm } from "./TodoEditForm";
+import { listFamilyTags } from "@/lib/tags";
 import type { Language } from "@/lib/language-detect";
 
 
@@ -30,12 +31,26 @@ export default async function EditTodoPage({
   const language = (profile.language_preference ?? "vi") as Language;
   const t = T[language];
 
-  const { data: todo } = await supabase
+  // Try selecting tags; fall back without if the migration is pending.
+  const withTags = await supabase
     .from("family_todos")
-    .select("id, text_vi, text_en, due_at, deleted_at")
+    .select("id, text_vi, text_en, due_at, deleted_at, tags")
     .eq("id", params.id)
     .maybeSingle();
+  const todo = withTags.error
+    ? (
+        await supabase
+          .from("family_todos")
+          .select("id, text_vi, text_en, due_at, deleted_at")
+          .eq("id", params.id)
+          .maybeSingle()
+      ).data
+    : withTags.data;
   if (!todo || todo.deleted_at) notFound();
+  const todoTags = (todo as unknown as { tags?: unknown }).tags;
+  const initialTags = Array.isArray(todoTags) ? (todoTags as string[]) : [];
+
+  const familyTags = await listFamilyTags(supabase, profile.family_space_id);
 
   return (
     <main className="mx-auto max-w-md px-6 py-10 space-y-6">
@@ -64,6 +79,8 @@ export default async function EditTodoPage({
           language === "vi" ? todo.text_vi : todo.text_en
         }
         initialDueAt={todo.due_at}
+        initialTags={initialTags}
+        familyTags={familyTags}
         language={language}
       />
     </main>

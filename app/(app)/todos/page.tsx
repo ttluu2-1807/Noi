@@ -7,6 +7,7 @@ import { TodoComposer } from "./TodoComposer";
 import { TodoList, type TodoRow } from "./TodoList";
 import { CapturedToast } from "@/components/CapturedToast";
 import { fetchFamilyMembers, membersById } from "@/lib/family-members";
+import { listFamilyTags } from "@/lib/tags";
 import type { Language } from "@/lib/language-detect";
 
 
@@ -57,11 +58,16 @@ export default async function TodosPage() {
 
   // Family invite code is tiny and shown in HeaderMenu — keep in critical
   // path so the menu has it without a second flash. Cheap query.
-  const { data: family } = await supabase
-    .from("family_spaces")
-    .select("invite_code")
-    .eq("id", profile.family_space_id)
-    .maybeSingle();
+  // familyTags powers the autocomplete inside TodoComposer, which is
+  // rendered above the Suspense boundary — fetch in the critical path.
+  const [{ data: family }, familyTags] = await Promise.all([
+    supabase
+      .from("family_spaces")
+      .select("invite_code")
+      .eq("id", profile.family_space_id)
+      .maybeSingle(),
+    listFamilyTags(supabase, profile.family_space_id),
+  ]);
 
   const homeHref = profile.role === "parent" ? "/parent" : "/child";
 
@@ -103,7 +109,7 @@ export default async function TodosPage() {
           />
         </header>
 
-        <TodoComposer language={language} />
+        <TodoComposer language={language} familyTags={familyTags} />
 
         <Suspense fallback={<TodoListSkeleton />}>
           <TodoListSection
@@ -136,21 +142,37 @@ async function TodoListSection({
   role: "parent" | "child";
 }) {
   const supabase = createServerClient();
-  const [todosResult, members] = await Promise.all([
-    supabase
+  // Try the full select with tags; if the migration hasn't been applied
+  // yet the column won't exist and the query errors. Fall back to the
+  // same select without tags so the list keeps rendering.
+  const todosWithTags = await supabase
+    .from("family_todos")
+    .select(
+      "id, text_vi, text_en, due_at, assignee_role, is_completed, completed_at, created_at, created_by, recurrence, source_thread_id, owner_id, tags",
+    )
+    .eq("family_space_id", familySpaceId)
+    .is("deleted_at", null)
+    .order("is_completed", { ascending: true })
+    .order("due_at", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: false });
+  const members = await fetchFamilyMembers(supabase, familySpaceId);
+
+  let rows: TodoRow[];
+  if (todosWithTags.error) {
+    const fallback = await supabase
       .from("family_todos")
       .select(
         "id, text_vi, text_en, due_at, assignee_role, is_completed, completed_at, created_at, created_by, recurrence, source_thread_id, owner_id",
       )
       .eq("family_space_id", familySpaceId)
       .is("deleted_at", null)
-      // Order: overdue/due-soon first, then everything else, then completed.
       .order("is_completed", { ascending: true })
       .order("due_at", { ascending: true, nullsFirst: false })
-      .order("created_at", { ascending: false }),
-    fetchFamilyMembers(supabase, familySpaceId),
-  ]);
-  const rows = (todosResult.data ?? []) as TodoRow[];
+      .order("created_at", { ascending: false });
+    rows = (fallback.data ?? []) as TodoRow[];
+  } else {
+    rows = (todosWithTags.data ?? []) as TodoRow[];
+  }
 
   // Resolve thread titles for any todos that link back to a source
   // thread — one round-trip for the union of ids. Titles feed the

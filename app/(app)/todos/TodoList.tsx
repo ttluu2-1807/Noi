@@ -8,6 +8,7 @@ import { TodoActionsMenu } from "@/components/TodoActionsMenu";
 import { FilteredEmptyState } from "@/components/FilteredEmptyState";
 import { relativeTime } from "@/lib/relative-time";
 import { daysUntil, RECURRENCE_LABELS, type Recurrence } from "@/lib/recurrence";
+import { tagColors } from "@/lib/tags";
 import type { Language } from "@/lib/language-detect";
 
 export interface TodoRow {
@@ -27,6 +28,8 @@ export interface TodoRow {
   source_thread_id?: string | null;
   /** Specific person responsible; null renders as "Anyone". */
   owner_id?: string | null;
+  /** Family-shared tag taxonomy. Rendered as coloured pills on the row. */
+  tags?: string[] | null;
 }
 
 interface TodoListProps {
@@ -444,6 +447,22 @@ function TodoItem({
               {creatorName ? ` · ${t.by} ${creatorName}` : ""}
             </span>
           </div>
+          {Array.isArray(row.tags) && row.tags.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1 pt-1">
+              {row.tags.map((tag) => {
+                const c = tagColors(tag);
+                return (
+                  <span
+                    key={tag}
+                    className="rounded-full border px-2 py-0.5 text-body-sm"
+                    style={{ backgroundColor: c.bg, color: c.fg, borderColor: c.border }}
+                  >
+                    {tag}
+                  </span>
+                );
+              })}
+            </div>
+          )}
         </div>
         <TodoActionsMenu
           todoId={row.id}

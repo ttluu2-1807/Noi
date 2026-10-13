@@ -40,10 +40,13 @@ export async function listFamilyTags(
   supabase: SupabaseClient,
   familySpaceId: string,
 ): Promise<string[]> {
-  // Pool the tag set from BOTH threads and diary entries so a single
+  // Pool the tag set from threads, diary entries AND todos so a single
   // family taxonomy emerges across surfaces ("medicare" tagged on a
-  // thread autocompletes when tagging a diary entry, and vice versa).
-  const [threadsResult, diaryResult] = await Promise.all([
+  // thread autocompletes when tagging a diary entry or a to-do, and
+  // vice versa). The family_todos.tags column may not exist on older
+  // deployments — the catch below degrades to empty if so, so the
+  // threads + diary sources keep working.
+  const [threadsResult, diaryResult, todosResult] = await Promise.all([
     supabase
       .from("threads")
       .select("tags")
@@ -54,9 +57,22 @@ export async function listFamilyTags(
       .select("tags")
       .eq("family_space_id", familySpaceId)
       .is("deleted_at", null),
+    supabase
+      .from("family_todos")
+      .select("tags")
+      .eq("family_space_id", familySpaceId)
+      .is("deleted_at", null)
+      .then(
+        (r) => r,
+        () => ({ data: [] as { tags: string[] | null }[] }),
+      ),
   ]);
   const set = new Set<string>();
-  const rows = [...(threadsResult.data ?? []), ...(diaryResult.data ?? [])];
+  const rows = [
+    ...(threadsResult.data ?? []),
+    ...(diaryResult.data ?? []),
+    ...(todosResult.data ?? []),
+  ];
   for (const row of rows) {
     const tags = Array.isArray(row.tags) ? (row.tags as string[]) : [];
     for (const t of tags) {

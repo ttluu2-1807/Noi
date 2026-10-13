@@ -3,12 +3,15 @@
 import { useRef, useState, useTransition } from "react";
 import { VoiceInput } from "@/components/VoiceInput";
 import { LoadingDots } from "@/components/LoadingDots";
+import { LocalTagsInput } from "@/components/LocalTagsInput";
 import { dictateTodos, addTodo } from "./actions";
 import { RECURRENCE_LABELS, ROLLOVER_LABELS, type Recurrence, type Rollover } from "@/lib/recurrence";
 import type { Language } from "@/lib/language-detect";
 
 interface TodoComposerProps {
   language: Language;
+  /** Existing family tag taxonomy — autocomplete suggestions. */
+  familyTags: string[];
 }
 
 const T = {
@@ -47,7 +50,7 @@ const T = {
  * Both paths surface a small success/error line for confirmation.
  * Realtime in the parent page picks up the new rows automatically.
  */
-export function TodoComposer({ language }: TodoComposerProps) {
+export function TodoComposer({ language, familyTags }: TodoComposerProps) {
   const t = T[language];
   const [text, setText] = useState("");
   const [pending, startTransition] = useTransition();
@@ -61,6 +64,7 @@ export function TodoComposer({ language }: TodoComposerProps) {
   // when recurrence is set. Sent as form fields on addTodo.
   const [recurrence, setRecurrence] = useState<Recurrence | null>(null);
   const [rollover, setRollover] = useState<Rollover>("reset");
+  const [tags, setTags] = useState<string[]>([]);
 
   const onDictate = () => {
     if (!text.trim()) return;
@@ -90,12 +94,14 @@ export function TodoComposer({ language }: TodoComposerProps) {
         fd.set("recurrence", recurrence);
         fd.set("rollover", rollover);
       }
+      if (tags.length > 0) fd.set("tags", JSON.stringify(tags));
       const r = await addTodo(fd);
       if (r.ok) {
         setFeedback({ ok: true, message: t.added(1) });
         setText("");
         setRecurrence(null);
         setRollover("reset");
+        setTags([]);
       } else {
         setFeedback({ ok: false, message: r.error || t.error });
       }
@@ -188,6 +194,13 @@ export function TodoComposer({ language }: TodoComposerProps) {
             ))}
           </div>
         )}
+        <LocalTagsInput
+          value={tags}
+          onChange={setTags}
+          familyTags={familyTags}
+          language={language}
+          disabled={pending}
+        />
       </div>
 
       <div className="flex flex-wrap items-center justify-end gap-2">

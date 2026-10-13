@@ -6,6 +6,35 @@ import { extractTodos } from "@/lib/todo-extract";
 import { detectLanguage } from "@/lib/language-detect";
 import { nextDueAt, type Recurrence, type Rollover } from "@/lib/recurrence";
 import { createDiaryEntry } from "@/app/(app)/diary/actions";
+import { normaliseTag } from "@/lib/tags";
+
+/**
+ * Parse the "tags" FormData field. Clients send a JSON-encoded string
+ * array. Normalise + dedupe here (same path as diary + thread tags) so
+ * the family taxonomy stays clean regardless of how a client composed it.
+ * Returns an empty array on anything unparseable rather than erroring —
+ * tags are optional metadata, not critical.
+ */
+function parseTagsField(raw: FormDataEntryValue | null): string[] {
+  if (typeof raw !== "string" || !raw.trim()) return [];
+  try {
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return [];
+    const out: string[] = [];
+    for (const v of arr) {
+      if (typeof v !== "string") continue;
+      const n = normaliseTag(v);
+      if (!n) continue;
+      if (n.length > 30) continue;
+      if (out.includes(n)) continue;
+      out.push(n);
+      if (out.length >= 20) break;
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
 
 /**
  * Server actions for the family-shared to-do list (FAM-2).
@@ -112,6 +141,7 @@ export async function addTodo(
       ? recurrenceRaw
       : null;
   const rollover: Rollover = rolloverRaw === "spawn" ? "spawn" : "reset";
+  const tags = parseTagsField(formData.get("tags"));
 
   // Either resolve item via Claude extraction, or take the raw text
   // as-is for both languages (chip fast path). The extractor round-
@@ -147,6 +177,7 @@ export async function addTodo(
     owner_id: ownerId,
     recurrence,
     rollover: recurrence ? rollover : null,
+    tags,
   });
 
   if (error) return { ok: false, error: error.message };
@@ -171,6 +202,8 @@ export async function updateTodo(input: {
   recurrence?: Recurrence | null;
   /** Only meaningful when recurrence is set. Defaults to "reset". */
   rollover?: Rollover;
+  /** Full replacement tag set. Omit to leave tags untouched. */
+  tags?: string[];
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   if (!input.id) return { ok: false, error: "Missing id" };
   const text = input.text.trim();
@@ -211,6 +244,18 @@ export async function updateTodo(input: {
   };
   if (input.recurrence !== undefined) patch.recurrence = input.recurrence;
   if (input.rollover !== undefined) patch.rollover = input.rollover;
+  if (input.tags !== undefined) {
+    // Normalise + dedupe + cap on the server, mirroring addTodo's path.
+    const seen: string[] = [];
+    for (const v of input.tags) {
+      if (typeof v !== "string") continue;
+      const n = normaliseTag(v);
+      if (!n || n.length > 30 || seen.includes(n)) continue;
+      seen.push(n);
+      if (seen.length >= 20) break;
+    }
+    patch.tags = seen;
+  }
 
   const { error } = await supabase
     .from("family_todos")

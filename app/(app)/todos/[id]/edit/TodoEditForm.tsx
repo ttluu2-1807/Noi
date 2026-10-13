@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { LoadingDots } from "@/components/LoadingDots";
+import { LocalTagsInput } from "@/components/LocalTagsInput";
 import { updateTodo } from "../../actions";
 import type { Language } from "@/lib/language-detect";
 
@@ -10,6 +11,8 @@ interface TodoEditFormProps {
   id: string;
   initialText: string;
   initialDueAt: string | null;
+  initialTags: string[];
+  familyTags: string[];
   language: Language;
 }
 
@@ -45,6 +48,8 @@ export function TodoEditForm({
   id,
   initialText,
   initialDueAt,
+  initialTags,
+  familyTags,
   language,
 }: TodoEditFormProps) {
   const t = T[language];
@@ -54,6 +59,7 @@ export function TodoEditForm({
   const [dueAt, setDueAt] = useState(
     initialDueAt ? initialDueAt.slice(0, 10) : "",
   );
+  const [tags, setTags] = useState<string[]>(initialTags);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -68,6 +74,7 @@ export function TodoEditForm({
         id,
         text: text.trim(),
         due_at: dueAt ? new Date(dueAt).toISOString() : null,
+        tags,
       });
       if (!result.ok) {
         setError(result.error);
@@ -98,6 +105,16 @@ export function TodoEditForm({
           onChange={(e) => setDueAt(e.target.value)}
           disabled={pending}
           className="rounded-card border border-line bg-white px-4 py-2 focus:border-accent focus:outline-none"
+        />
+      </section>
+
+      <section className="space-y-2">
+        <LocalTagsInput
+          value={tags}
+          onChange={setTags}
+          familyTags={familyTags}
+          language={language}
+          disabled={pending}
         />
       </section>
 
