@@ -1,10 +1,37 @@
 # Noi — project status
 
-Last updated: 2026-05-14
+Last updated: 2026-10-13
 
 ## Where we are
 
-Phase 1 complete and **shipped to production** at `https://noi-app.com`. Custom domain configured with Resend SMTP (verified domain — magic links can go to any recipient). Both parent and child accounts tested end-to-end on real devices with real emails. Several post-launch UX improvements landed: tappable phone numbers, TTS on every message with slower Vietnamese rate, broader TTS coverage, tightened translation prompts, parent language preference toggle, child unified composer (Parent/Noi destination toggle), voice input for child, and image attachments with Claude vision integration.
+Phase 1 (core AI + bilingual thread flow) and most of Phase 2/3 shipped and running in production at `https://noi-app.com`. Dad uses the iOS PWA regularly. Auth switched from magic-link to OTP-code mid-year. The project has moved well beyond "AI Q&A" into a family-shared system: to-dos with recurrence + tags, diary with migrate-from-todo, weekly audio digest, push notifications (daily + activity + escalation), Call Prep, Vocabulary Level 1 ("Words to know"), global voice-trigger FAB, Google Calendar Slice A, lantern favicon/avatar, multi-parent attribution.
+
+See [supabase/PENDING_MIGRATIONS.md](supabase/PENDING_MIGRATIONS.md) for Supabase setup state (buckets, policies, enums) that lives outside git — one bucket historically shipped without the SQL to create it, which caused "Your week in a minute" to error with "bucket not found".
+
+### Live surfaces (quick index)
+
+- Auth: OTP-code sign-in (8 digits per Supabase project setting), family-space creation + invite code join
+- Parent/child homes with mic + text + threads; streaming AI answers with answer-anatomy enforced (summary → steps → callout → links → Add-to-list → Words-to-know)
+- Family-shared to-dos: `family_todos` with recurrence (fortnightly/monthly/quarterly/annually), rollover (reset/spawn), due-date pills (overdue/today/soon ladder), owner pills, source-thread deep-links, tag chips (`tags text[]`), soft-delete + /trash
+- Family diary: `diary_entries` with tags, migrate-from-todo on tick-off
+- Weekly digest audio ("Your week in a minute"): dual-language scripts via Claude, per-language MP3 via ElevenLabs, stored in `digest-audio` Supabase Storage bucket, signed URLs
+- Push notifications (KILLER-1): subscribe UI on /settings, daily digest cron at 21:00 UTC, `notifyFamilyOfThreadActivity` fan-out, escalation ("I need help") push + banner
+- Call Prep: bilingual cheat-sheet auto-detected when assistant answers include AU institution phone numbers
+- Vocabulary Level 1: "Words to know" panel beneath assistant answers (Levels 2 + 3 parked)
+- Google Calendar Slice A: OAuth connect/disconnect on /settings, token storage with refresh-on-demand (Slices B/C/D/E parked)
+- Global voice-trigger FAB with intent classification routing to todos/diary/thread
+- Chip freeze fix + VI/EN translation gap fix on Add-to-list chips (6b0881f)
+- Friendly bilingual mic-permission error copy (cdafb08)
+- Lantern favicon + chat avatar; icons generated via scripts/generate-icons.mjs
+
+### Known-open as of 2026-10-13
+
+- Push "sent to 1 device" but Dad didn't receive — most likely cause is iOS not having Noi installed to Home Screen (Safari tab silently drops Web Push), or Notifications toggled off, or Focus/DND. Needs verification on his phone. Freeze-on-disable bug fixed in commit `c7e84aa`.
+- Mum's microphone — unknown which of 3 failure shapes (permission vs audio-capture vs network); friendly copy ships in commit `cdafb08` so her next failure should tell us which.
+- `family_todos.tags` migration (commit `58fbd14`) — code degrades gracefully but tags don't persist until applied. SQL in supabase/PENDING_MIGRATIONS.md.
+- Delete-by-swipe gesture on todos — option A, ~1 day
+- Confirm Calendar Slice A connect flow in production
+- Decide Slice B (event sync cron + /calendar view) vs Capacitor wrap for iOS native EventKit
 
 ### What's verified working
 
